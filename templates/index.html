@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数学题库练习系统</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>数学题库练习系统</h1>
+
+        <div id="login-section" class="section">
+            <h2>欢迎</h2>
+            <div class="form-group">
+                <input type="text" id="username" placeholder="请输入用户名" />
+                <button onclick="login()">开始练习</button>
+            </div>
+        </div>
+
+        <div id="main-section" class="section hidden">
+            <div class="user-info">
+                <span>用户: <strong id="current-user"></strong></span>
+                <button onclick="logout()" class="btn-secondary">退出</button>
+            </div>
+
+            <div class="menu">
+                <a href="/practice" class="btn">开始练习</a>
+                <a href="/statistics" class="btn btn-secondary">查看统计</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function login() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert('请输入用户名');
+                return;
+            }
+
+            fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: username})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('main-section').classList.remove('hidden');
+                    document.getElementById('current-user').textContent = data.username;
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+
+        function logout() {
+            fetch('/api/logout', {method: 'POST'})
+            .then(() => {
+                location.reload();
+            });
+        }
+
+        // 回车登录
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    login();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

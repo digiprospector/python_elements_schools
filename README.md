@@ -11,9 +11,19 @@
 
 ## 文件说明
 
-- `generate_math_problems.py` - 题库生成器
+- `app.py` - Flask Web应用主程序
 - `database.py` - 数据库管理模块
-- `practice.py` - 练习系统主程序
+- `generate_math_problems.py` - 题库生成器
+- `practice.py` - 命令行练习程序
+- `verify_db.py` - 数据库验证工具
+- `requirements.txt` - Python依赖列表
+- `templates/` - HTML模板文件
+  - `index.html` - 首页
+  - `practice.html` - 练习页面
+  - `statistics.html` - 统计页面
+- `static/` - 静态资源文件
+  - `css/style.css` - 样式文件
+  - `js/practice.js` - JavaScript文件
 - `math_problems.db` - SQLite数据库文件
 - `math_problems_complete.json` - 完整题库JSON文件
 - `math_problems_complete.txt` - 完整题库文本文件
@@ -42,7 +52,13 @@
 
 ## 使用方法
 
-### 1. 初始化数据库
+### 1. 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. 初始化数据库
 
 ```bash
 python database.py
@@ -50,7 +66,21 @@ python database.py
 
 这将创建数据库并导入所有题目。
 
-### 2. 开始练习
+### 3. 启动Web应用（推荐）
+
+```bash
+python app.py
+```
+
+然后在浏览器中访问: http://localhost:5000
+
+Web应用功能：
+- 用户登录
+- 在线答题练习
+- 实时反馈正确/错误
+- 查看答题统计
+
+### 4. 命令行练习（可选）
 
 ```bash
 python practice.py
@@ -99,7 +129,14 @@ db.close()
 ## 系统要求
 
 - Python 3.6+
+- Flask 3.0+
 - SQLite3（Python内置）
+
+## Web应用截图说明
+
+1. **首页** - 用户登录界面
+2. **练习页面** - 显示题目，输入答案，实时反馈
+3. **统计页面** - 显示答题统计和正确率
 
 ## 后续开发建议
 

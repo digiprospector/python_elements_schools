@@ -207,3 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 .claude/
+
+# 临时生成的题库文件（保留完整版）
+math_problems.json
+math_problems.txt
+math_problems_complete.txt

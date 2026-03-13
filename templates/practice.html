@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开始练习 - 数学题库</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>数学练习</h1>
+            <div class="nav">
+                <a href="/" class="btn-secondary">返回首页</a>
+                <a href="/statistics" class="btn-secondary">查看统计</a>
+            </div>
+        </div>
+
+        <div id="setup-section" class="section">
+            <h2>练习设置</h2>
+            <div class="form-group">
+                <label>题目数量:</label>
+                <input type="number" id="problem-count" value="10" min="1" max="50" />
+            </div>
+            <div class="form-group">
+                <label>题目类型:</label>
+                <select id="problem-type">
+                    <option value="">全部</option>
+                    <option value="加法">加法</option>
+                    <option value="减法">减法</option>
+                </select>
+            </div>
+            <button onclick="startPractice()" class="btn">开始练习</button>
+        </div>
+
+        <div id="practice-section" class="section hidden">
+            <div class="progress-bar">
+                <div class="progress-info">
+                    <span>进度: <span id="current-index">0</span> / <span id="total-count">0</span></span>
+                    <span>正确: <span id="correct-count">0</span></span>
+                    <span>错误: <span id="wrong-count">0</span></span>
+                </div>
+                <div class="progress">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div id="problem-container" class="problem-container">
+                <h2 id="question" class="question"></h2>
+                <div class="answer-input">
+                    <input type="number" id="answer" placeholder="请输入答案" />
+                    <button onclick="submitAnswer()" class="btn">提交</button>
+                </div>
+                <div id="feedback" class="feedback hidden"></div>
+            </div>
+        </div>
+
+        <div id="result-section" class="section hidden">
+            <h2>练习完成！</h2>
+            <div class="result-summary">
+                <div class="result-item">
+                    <span class="result-label">总题数:</span>
+                    <span class="result-value" id="result-total">0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">正确:</span>
+                    <span class="result-value correct" id="result-correct">0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">错误:</span>
+                    <span class="result-value wrong" id="result-wrong">0</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">正确率:</span>
+                    <span class="result-value" id="result-accuracy">0%</span>
+                </div>
+            </div>
+            <div class="result-actions">
+                <button onclick="location.reload()" class="btn">再练一次</button>
+                <a href="/statistics" class="btn btn-secondary">查看统计</a>
+                <a href="/" class="btn-secondary">返回首页</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/practice.js"></script>
+</body>
+</html>
