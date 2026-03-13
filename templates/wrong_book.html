@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错题本 - 数学题库</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>错题本</h1>
+            <div class="nav">
+                <a href="/" class="btn-secondary">返回首页</a>
+                <a href="/practice" class="btn-secondary">继续练习</a>
+                <a href="/statistics" class="btn-secondary">查看统计</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <div id="wrong-book-container">
+                <div class="wrong-book-header">
+                    <h2>我的错题</h2>
+                    <p class="hint">提示: 连续做对同类型题目3次后，错题将自动从错题本移除</p>
+                </div>
+
+                <div id="wrong-problems-list"></div>
+
+                <div id="empty-message" class="empty-message hidden">
+                    <p>🎉 太棒了！错题本是空的</p>
+                    <p>继续保持，加油！</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 练习相似题目的弹窗 -->
+        <div id="practice-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>练习相似题目</h2>
+                    <button onclick="closeModal()" class="btn-close">×</button>
+                </div>
+
+                <div id="modal-practice-section">
+                    <div class="progress-bar">
+                        <div class="progress-info">
+                            <span>进度: <span id="modal-current-index">0</span> / <span id="modal-total-count">0</span></span>
+                            <span>正确: <span id="modal-correct-count">0</span></span>
+                            <span>错误: <span id="modal-wrong-count">0</span></span>
+                        </div>
+                        <div class="progress">
+                            <div id="modal-progress-fill" class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="problem-container">
+                        <h2 id="modal-question" class="question"></h2>
+                        <div class="answer-input">
+                            <input type="number" id="modal-answer" placeholder="请输入答案" />
+                            <button onclick="submitModalAnswer()" class="btn">提交</button>
+                        </div>
+                        <div id="modal-feedback" class="feedback hidden"></div>
+                    </div>
+                </div>
+
+                <div id="modal-result-section" class="hidden">
+                    <h3>练习完成！</h3>
+                    <div class="result-summary">
+                        <div class="result-item">
+                            <span class="result-label">正确:</span>
+                            <span class="result-value correct" id="modal-result-correct">0</span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">错误:</span>
+                            <span class="result-value wrong" id="modal-result-wrong">0</span>
+                        </div>
+                    </div>
+                    <button onclick="closeModal()" class="btn">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/wrong_book.js"></script>
+</body>
+</html>

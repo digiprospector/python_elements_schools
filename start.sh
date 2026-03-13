@@ -14,7 +14,7 @@ fi
 # 检查数据库是否存在
 if [ ! -f "math_problems.db" ]; then
     echo "数据库不存在，正在初始化..."
-    python database_v2.py
+    python database_v3.py
     echo ""
 fi
 

@@ -7,6 +7,11 @@
 - 完整的题库：包含所有可能的一位数和两位数加减法组合（14,751道题）
 - 智能分类：每道题都有详细的标签（进位/退位、数字位数、结果范围等）
 - 灵活筛选：通过checkbox选择题目类型，支持多条件组合
+- 错题本功能：
+  - 自动记录答错的题目
+  - 显示错误次数和连续正确次数
+  - 可以练习与错题相似的题目
+  - 连续做对同类型题目3次后，错题自动移除
 - 用户管理：支持多用户使用
 - 答题记录：自动记录每次答题的正确与错误
 - 统计分析：查看个人答题统计和正确率
@@ -15,19 +20,22 @@
 ## 文件说明
 
 - `app.py` - Flask Web应用主程序
-- `database_v2.py` - 数据库管理模块（支持标签筛选）
+- `database_v3.py` - 数据库管理模块（支持标签筛选和错题本）
 - `generate_tagged_problems.py` - 带标签的题库生成器
 - `practice.py` - 命令行练习程序
 - `test_tags.py` - 标签功能测试工具
+- `test_wrong_book.py` - 错题本功能测试工具
 - `requirements.txt` - Python依赖列表
 - `TAGS_GUIDE.md` - 题目分类详细说明
 - `templates/` - HTML模板文件
   - `index.html` - 首页
   - `practice.html` - 练习页面（含checkbox筛选）
   - `statistics.html` - 统计页面
+  - `wrong_book.html` - 错题本页面
 - `static/` - 静态资源文件
   - `css/style.css` - 样式文件
-  - `js/practice.js` - JavaScript文件
+  - `js/practice.js` - 练习页面JavaScript
+  - `js/wrong_book.js` - 错题本JavaScript
 - `math_problems.db` - SQLite数据库文件
 - `math_problems_tagged.json` - 带标签的完整题库JSON文件
 
@@ -36,8 +44,11 @@
 ### problems 表（题目表）
 - `id` - 题目ID
 - `question` - 题目内容
+- `num1` - 第一个数字
+- `num2` - 第二个数字
 - `answer` - 正确答案
 - `type` - 题目类型（加法/减法）
+- `tags` - 题目标签（逗号分隔）
 - `created_at` - 创建时间
 
 ### users 表（用户表）
@@ -52,6 +63,16 @@
 - `user_answer` - 用户答案
 - `is_correct` - 是否正确
 - `answered_at` - 答题时间
+
+### wrong_problems 表（错题本表）
+- `id` - 记录ID
+- `user_id` - 用户ID
+- `problem_id` - 题目ID
+- `tags` - 题目标签
+- `wrong_count` - 错误次数
+- `correct_streak` - 连续正确次数
+- `created_at` - 创建时间
+- `updated_at` - 更新时间
 
 ## 使用方法
 
@@ -70,7 +91,7 @@ python generate_tagged_problems.py
 ### 3. 初始化数据库
 
 ```bash
-python database_v2.py
+python database_v3.py
 ```
 
 这将创建数据库并导入所有题目及其标签。
@@ -90,6 +111,10 @@ Web应用功能：
   - 加法：选择是否包含一位数/两位数、是否进位、结果范围等
   - 减法：选择是否包含一位数/两位数、是否退位、结果范围等
 - 实时反馈正确/错误
+- 错题本功能
+  - 自动收集答错的题目
+  - 练习相似题目
+  - 智能消除机制（连续做对3次同类型题目后自动移除）
 - 查看答题统计
 
 详细的分类说明请查看 [TAGS_GUIDE.md](TAGS_GUIDE.md)
@@ -108,7 +133,7 @@ python practice.py
 ### 3. 使用数据库API
 
 ```python
-from database import MathDatabase
+from database_v3 import MathDatabase
 
 # 创建数据库实例
 db = MathDatabase()
@@ -118,7 +143,7 @@ db.connect()
 user_id = db.add_user('张三')
 
 # 获取随机题目
-problems = db.get_random_problems(10)
+problems = db.get_problems_by_filters(10)
 
 # 记录答题
 is_correct = db.record_answer(user_id, problem_id, user_answer)
@@ -126,8 +151,11 @@ is_correct = db.record_answer(user_id, problem_id, user_answer)
 # 获取用户统计
 stats = db.get_user_statistics(user_id)
 
-# 获取题目统计
-problem_stats = db.get_problem_statistics(problem_id)
+# 获取错题本
+wrong_problems = db.get_wrong_problems(user_id)
+
+# 获取相似题目
+similar = db.get_similar_problems(tags, count=10)
 
 db.close()
 ```
@@ -154,10 +182,10 @@ db.close()
 
 ## 后续开发建议
 
-1. 添加Web界面（使用Flask或Django）
-2. 添加难度分级（按数字范围分类）
-3. 添加计时功能
-4. 添加错题本功能
-5. 添加学习进度跟踪
-6. 添加成就系统
-7. 导出学习报告
+1. 添加学习进度跟踪
+2. 添加成就系统
+3. 导出学习报告
+4. 添加计时功能
+5. 添加排行榜功能
+6. 支持打印练习题
+7. 添加家长监控功能

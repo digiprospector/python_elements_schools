@@ -5,7 +5,7 @@
 """
 
 from flask import Flask, render_template, request, jsonify, session
-from database_v2 import MathDatabase
+from database_v3 import MathDatabase
 import secrets
 
 app = Flask(__name__)
@@ -31,6 +31,12 @@ def practice():
 def statistics():
     """统计页面"""
     return render_template('statistics.html')
+
+
+@app.route('/wrong-book')
+def wrong_book():
+    """错题本页面"""
+    return render_template('wrong_book.html')
 
 
 @app.route('/api/login', methods=['POST'])
@@ -127,6 +133,40 @@ def logout():
     """退出登录"""
     session.clear()
     return jsonify({'success': True})
+
+
+@app.route('/api/get_wrong_problems', methods=['GET'])
+def get_wrong_problems():
+    """获取错题本"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '请先登录'})
+
+    db.connect()
+    wrong_problems = db.get_wrong_problems(session['user_id'])
+    db.close()
+
+    return jsonify({'success': True, 'wrong_problems': wrong_problems})
+
+
+@app.route('/api/get_similar_problems', methods=['POST'])
+def get_similar_problems():
+    """获取相似题目"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': '请先登录'})
+
+    data = request.get_json()
+    tags = data.get('tags')
+    count = data.get('count', 10)
+    exclude_id = data.get('exclude_id')
+
+    if not tags:
+        return jsonify({'success': False, 'message': '参数错误'})
+
+    db.connect()
+    problems = db.get_similar_problems(tags, count, exclude_id)
+    db.close()
+
+    return jsonify({'success': True, 'problems': problems})
 
 
 if __name__ == '__main__':

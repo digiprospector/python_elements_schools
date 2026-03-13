@@ -327,6 +327,150 @@ h2 {
     cursor: pointer;
 }
 
+.wrong-book-header {
+    margin-bottom: 30px;
+}
+
+.wrong-book-header h2 {
+    margin-bottom: 10px;
+}
+
+.hint {
+    color: #666;
+    font-size: 14px;
+    font-style: italic;
+}
+
+.wrong-problem-card {
+    background: #fff;
+    border: 2px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 15px;
+    transition: all 0.3s;
+}
+
+.wrong-problem-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+}
+
+.wrong-problem-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.wrong-problem-question {
+    font-size: 1.5em;
+    color: #333;
+    font-weight: bold;
+}
+
+.wrong-problem-stats {
+    display: flex;
+    gap: 15px;
+    font-size: 14px;
+}
+
+.stat-badge {
+    padding: 5px 12px;
+    border-radius: 15px;
+    background: #f8f9fa;
+}
+
+.stat-badge.wrong {
+    background: #fee;
+    color: #c00;
+}
+
+.stat-badge.correct {
+    background: #efe;
+    color: #0a0;
+}
+
+.wrong-problem-tags {
+    margin: 10px 0;
+}
+
+.tag {
+    display: inline-block;
+    padding: 4px 10px;
+    margin: 3px;
+    background: #e9ecef;
+    border-radius: 12px;
+    font-size: 12px;
+    color: #666;
+}
+
+.wrong-problem-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.empty-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-message p:first-child {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    font-size: 2em;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    line-height: 1;
+}
+
+.btn-close:hover {
+    color: #333;
+}
+
 @media (max-width: 600px) {
     .question {
         font-size: 2em;
@@ -350,5 +494,19 @@ h2 {
 
     .checkbox-grid {
         grid-template-columns: 1fr;
+    }
+
+    .wrong-problem-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .wrong-problem-stats {
+        margin-top: 10px;
+    }
+
+    .modal-content {
+        width: 95%;
+        padding: 20px;
     }
 }
