@@ -24,12 +24,44 @@
             </div>
             <div class="form-group">
                 <label>题目类型:</label>
-                <select id="problem-type">
+                <select id="problem-type" onchange="updateTagOptions()">
                     <option value="">全部</option>
                     <option value="加法">加法</option>
                     <option value="减法">减法</option>
                 </select>
             </div>
+
+            <div id="addition-tags" class="tag-group">
+                <h3>加法选项</h3>
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" value="加数1是一位数"> 包含一位数（第一个数）</label>
+                    <label><input type="checkbox" value="加数1是两位数"> 包含两位数（第一个数）</label>
+                    <label><input type="checkbox" value="加数2是一位数"> 包含一位数（第二个数）</label>
+                    <label><input type="checkbox" value="加数2是两位数"> 包含两位数（第二个数）</label>
+                    <label><input type="checkbox" value="需要进位"> 需要进位</label>
+                    <label><input type="checkbox" value="不进位"> 不进位</label>
+                    <label><input type="checkbox" value="结果大于99"> 结果大于99</label>
+                    <label><input type="checkbox" value="结果大于50"> 结果大于50</label>
+                    <label><input type="checkbox" value="结果小于等于20"> 结果小于等于20</label>
+                </div>
+            </div>
+
+            <div id="subtraction-tags" class="tag-group">
+                <h3>减法选项</h3>
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" value="被减数是一位数"> 被减数是一位数</label>
+                    <label><input type="checkbox" value="被减数是两位数"> 被减数是两位数</label>
+                    <label><input type="checkbox" value="减数是一位数"> 减数是一位数</label>
+                    <label><input type="checkbox" value="减数是两位数"> 减数是两位数</label>
+                    <label><input type="checkbox" value="需要退位"> 需要退位</label>
+                    <label><input type="checkbox" value="不退位"> 不退位</label>
+                    <label><input type="checkbox" value="被减数大于50"> 被减数大于50</label>
+                    <label><input type="checkbox" value="结果为0"> 结果为0</label>
+                    <label><input type="checkbox" value="结果小于10"> 结果小于10</label>
+                    <label><input type="checkbox" value="结果大于等于50"> 结果大于等于50</label>
+                </div>
+            </div>
+
             <button onclick="startPractice()" class="btn">开始练习</button>
         </div>
 

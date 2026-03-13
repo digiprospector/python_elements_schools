@@ -5,28 +5,31 @@
 ## 功能特点
 
 - 完整的题库：包含所有可能的一位数和两位数加减法组合（14,751道题）
+- 智能分类：每道题都有详细的标签（进位/退位、数字位数、结果范围等）
+- 灵活筛选：通过checkbox选择题目类型，支持多条件组合
 - 用户管理：支持多用户使用
 - 答题记录：自动记录每次答题的正确与错误
 - 统计分析：查看个人答题统计和正确率
+- Web界面：美观的响应式设计，支持手机和平板
 
 ## 文件说明
 
 - `app.py` - Flask Web应用主程序
-- `database.py` - 数据库管理模块
-- `generate_math_problems.py` - 题库生成器
+- `database_v2.py` - 数据库管理模块（支持标签筛选）
+- `generate_tagged_problems.py` - 带标签的题库生成器
 - `practice.py` - 命令行练习程序
-- `verify_db.py` - 数据库验证工具
+- `test_tags.py` - 标签功能测试工具
 - `requirements.txt` - Python依赖列表
+- `TAGS_GUIDE.md` - 题目分类详细说明
 - `templates/` - HTML模板文件
   - `index.html` - 首页
-  - `practice.html` - 练习页面
+  - `practice.html` - 练习页面（含checkbox筛选）
   - `statistics.html` - 统计页面
 - `static/` - 静态资源文件
   - `css/style.css` - 样式文件
   - `js/practice.js` - JavaScript文件
 - `math_problems.db` - SQLite数据库文件
-- `math_problems_complete.json` - 完整题库JSON文件
-- `math_problems_complete.txt` - 完整题库文本文件
+- `math_problems_tagged.json` - 带标签的完整题库JSON文件
 
 ## 数据库结构
 
@@ -58,13 +61,19 @@
 pip install -r requirements.txt
 ```
 
-### 2. 初始化数据库
+### 2. 生成带标签的题库（首次使用）
 
 ```bash
-python database.py
+python generate_tagged_problems.py
 ```
 
-这将创建数据库并导入所有题目。
+### 3. 初始化数据库
+
+```bash
+python database_v2.py
+```
+
+这将创建数据库并导入所有题目及其标签。
 
 ### 3. 启动Web应用（推荐）
 
@@ -77,8 +86,13 @@ python app.py
 Web应用功能：
 - 用户登录
 - 在线答题练习
+- 灵活的题目筛选（通过checkbox选择）
+  - 加法：选择是否包含一位数/两位数、是否进位、结果范围等
+  - 减法：选择是否包含一位数/两位数、是否退位、结果范围等
 - 实时反馈正确/错误
 - 查看答题统计
+
+详细的分类说明请查看 [TAGS_GUIDE.md](TAGS_GUIDE.md)
 
 ### 4. 命令行练习（可选）
 

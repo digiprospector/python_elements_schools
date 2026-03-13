@@ -3,19 +3,53 @@ let currentIndex = 0;
 let correctCount = 0;
 let wrongCount = 0;
 
+function updateTagOptions() {
+    const type = document.getElementById('problem-type').value;
+    const additionTags = document.getElementById('addition-tags');
+    const subtractionTags = document.getElementById('subtraction-tags');
+
+    if (type === '加法') {
+        additionTags.style.display = 'block';
+        subtractionTags.style.display = 'none';
+    } else if (type === '减法') {
+        additionTags.style.display = 'none';
+        subtractionTags.style.display = 'block';
+    } else {
+        additionTags.style.display = 'block';
+        subtractionTags.style.display = 'block';
+    }
+}
+
+function getSelectedTags() {
+    const tags = [];
+    const checkboxes = document.querySelectorAll('.tag-group input[type="checkbox"]:checked');
+    checkboxes.forEach(cb => {
+        tags.push(cb.value);
+    });
+    return tags;
+}
+
 function startPractice() {
     const count = document.getElementById('problem-count').value;
     const type = document.getElementById('problem-type').value;
+    const tags = getSelectedTags();
 
     let url = `/api/get_problems?count=${count}`;
     if (type) {
         url += `&type=${encodeURIComponent(type)}`;
     }
+    tags.forEach(tag => {
+        url += `&tags[]=${encodeURIComponent(tag)}`;
+    });
 
     fetch(url)
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            if (data.problems.length === 0) {
+                alert('没有找到符合条件的题目，请调整筛选条件');
+                return;
+            }
             problems = data.problems;
             currentIndex = 0;
             correctCount = 0;
@@ -118,4 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // 初始化标签显示
+    updateTagOptions();
 });

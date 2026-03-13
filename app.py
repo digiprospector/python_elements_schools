@@ -5,7 +5,7 @@
 """
 
 from flask import Flask, render_template, request, jsonify, session
-from database import MathDatabase
+from database_v2 import MathDatabase
 import secrets
 
 app = Flask(__name__)
@@ -57,9 +57,10 @@ def get_problems():
     """获取题目"""
     count = request.args.get('count', 10, type=int)
     problem_type = request.args.get('type', None)
+    tags = request.args.getlist('tags[]')  # 获取标签数组
 
     db.connect()
-    problems = db.get_random_problems(count, problem_type)
+    problems = db.get_problems_by_filters(count, problem_type, tags if tags else None)
     db.close()
 
     return jsonify({'success': True, 'problems': problems})
