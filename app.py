@@ -4,15 +4,34 @@
 数学题库练习系统 - Web应用
 """
 
+import os
+import sys
+import shutil
 from flask import Flask, render_template, request, jsonify, session
-from database_v3 import MathDatabase
 import secrets
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
+# 配置加载：检查 config.py 是否存在
+config_path = os.path.join(os.path.dirname(__file__), 'config.py')
+config_sample_path = os.path.join(os.path.dirname(__file__), 'config_sample.py')
+
+if not os.path.exists(config_path):
+    shutil.copy(config_sample_path, config_path)
+    print('已生成 config.py，请编辑填入 Supabase URL 和 Key 后重新运行')
+    sys.exit(1)
+
+from config import SUPABASE_URL, SUPABASE_KEY
+
+if SUPABASE_URL == 'https://your-project.supabase.co' or SUPABASE_KEY == 'your-anon-key':
+    print('请先编辑 config.py，填入真实的 Supabase URL 和 Key')
+    sys.exit(1)
+
+from database_v3 import MathDatabase
+
 # 数据库实例
-db = MathDatabase()
+db = MathDatabase(SUPABASE_URL, SUPABASE_KEY)
 
 
 @app.route('/')
@@ -48,9 +67,7 @@ def login():
     if not username:
         return jsonify({'success': False, 'message': '用户名不能为空'})
 
-    db.connect()
     user_id = db.add_user(username)
-    db.close()
 
     session['user_id'] = user_id
     session['username'] = username
@@ -65,11 +82,24 @@ def get_problems():
     problem_type = request.args.get('type', None)
     tags = request.args.getlist('tags[]')  # 获取标签数组
 
-    db.connect()
     problems = db.get_problems_by_filters(count, problem_type, tags if tags else None)
-    db.close()
 
     return jsonify({'success': True, 'problems': problems})
+
+
+@app.route('/api/debug_problems', methods=['GET'])
+def debug_problems():
+    """Debug: 打印SQL并返回全部符合条件的题目"""
+    problem_type = request.args.get('type', None)
+    tags = request.args.getlist('tags[]')
+
+    desc, problems = db.debug_problems_by_filters(problem_type, tags if tags else None)
+
+    # 在后台打印查询描述
+    print(f'\n[DEBUG] Query: {desc}')
+    print(f'[DEBUG] 符合条件的题目数量: {len(problems)}')
+
+    return jsonify({'success': True, 'sql': desc, 'total': len(problems), 'problems': problems})
 
 
 @app.route('/api/submit_answer', methods=['POST'])
@@ -90,15 +120,11 @@ def submit_answer():
     except ValueError:
         return jsonify({'success': False, 'message': '答案必须是数字'})
 
-    db.connect()
     is_correct = db.record_answer(session['user_id'], problem_id, user_answer)
 
     # 获取正确答案
-    cursor = db.conn.cursor()
-    cursor.execute('SELECT answer FROM problems WHERE id = ?', (problem_id,))
-    correct_answer = cursor.fetchone()[0]
-
-    db.close()
+    problem = db.get_problem_by_id(problem_id)
+    correct_answer = problem['answer'] if problem else None
 
     return jsonify({
         'success': True,
@@ -113,9 +139,7 @@ def get_statistics():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': '请先登录'})
 
-    db.connect()
     stats = db.get_user_statistics(session['user_id'])
-    db.close()
 
     # 计算正确率
     if stats['total_answers'] > 0:
@@ -141,9 +165,7 @@ def get_wrong_problems():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': '请先登录'})
 
-    db.connect()
     wrong_problems = db.get_wrong_problems(session['user_id'])
-    db.close()
 
     return jsonify({'success': True, 'wrong_problems': wrong_problems})
 
@@ -162,9 +184,7 @@ def get_similar_problems():
     if not tags:
         return jsonify({'success': False, 'message': '参数错误'})
 
-    db.connect()
     problems = db.get_similar_problems(tags, count, exclude_id)
-    db.close()
 
     return jsonify({'success': True, 'problems': problems})
 

@@ -208,6 +208,9 @@ __marimo__/
 
 .claude/
 
+# Supabase config (contains secrets)
+config.py
+
 # 临时生成的题库文件（保留完整版）
 math_problems.json
 math_problems.txt
