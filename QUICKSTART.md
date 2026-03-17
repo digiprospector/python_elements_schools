@@ -38,20 +38,85 @@ http://localhost:5000
 
 ## 部署到 Vercel
 
-1. 在 Vercel 中导入本仓库
-2. 配置环境变量：
+### 准备工作
+
+在开始部署前，请先确认：
+
+- 已有可用的 Vercel 账号
+- 已有可用的 Supabase 项目
+- 当前仓库代码已经推送到 GitHub
+
+### 推荐部署顺序
+
+1. 在 Supabase SQL Editor 中执行 `supabase_schema.sql`
+2. 本地先运行一次 `python app.py`
+3. 等待题库自动写入 Supabase
+4. 在 Vercel 中导入本仓库
+5. 配置环境变量
+6. 点击部署
+
+### Vercel 环境变量
+
+至少需要配置：
+
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
 - `FLASK_SECRET_KEY`
-3. 在 Supabase 中执行 `supabase_schema.sql`
-4. 建议先本地运行一次 `python app.py`，让题库预先写入 Supabase
-5. 执行部署
+
+说明：
+
+- `SUPABASE_URL`：Supabase 项目地址
+- `SUPABASE_KEY`：Supabase 访问密钥
+- `FLASK_SECRET_KEY`：用于保持登录 session 稳定，必须是固定值
+
+可选变量：
+
+- `AUTO_SEED_PROBLEM_BANKS=true`
+
+只有在你确认要让 Vercel 自动补题时才建议设置。通常更推荐先在本地完成题库初始化。
+
+### 后台部署步骤
+
+1. 登录 Vercel
+2. 点击 `Add New` -> `Project`
+3. 选择这个 GitHub 仓库
+4. Root Directory 保持仓库根目录
+5. Framework Preset 选择自动识别或 `Other`
+6. 在 Environment Variables 中填入上面的变量
+7. 点击 `Deploy`
+
+### CLI 部署命令
+
+安装 CLI：
+
+```bash
+npm i -g vercel
+```
+
+登录：
+
+```bash
+vercel login
+```
+
+部署：
+
+```bash
+vercel
+```
+
+生产部署：
+
+```bash
+vercel --prod
+```
 
 说明：
 
 - 仓库已包含 `vercel.json`
 - 在 Vercel 上默认不自动补题库
 - 如需强制自动补题，可设置 `AUTO_SEED_PROBLEM_BANKS=true`
+- 如果登录后刷新就掉线，先检查 `FLASK_SECRET_KEY` 是否已设置且保持固定
 
 ## 当前题库逻辑
 
