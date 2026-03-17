@@ -1,80 +1,68 @@
 # 数学题库练习系统
 
-一个用于小学生练习一位数和两位数加减法的系统。
+一个面向小学数学练习的 Web 应用，当前采用 `Flask + Supabase` 架构。  
+系统支持按 `科目 / 年级 / 项目` 组织题库，并在应用启动时自动检查 Supabase 中是否已有对应项目题库；如果没有，会自动生成并写入题库。
 
-## 功能特点
+## 当前已支持的项目
 
-- 完整的题库：包含所有可能的一位数和两位数加减法组合（14,751道题）
-- 智能分类：每道题都有详细的标签（进位/退位、数字位数、结果范围等）
-- 灵活筛选：通过checkbox选择题目类型，支持多条件组合
-- 错题本功能：
-  - 自动记录答错的题目
-  - 显示错误次数和连续正确次数
-  - 可以练习与错题相似的题目
-  - 连续做对同类型题目3次后，错题自动移除
-- 用户管理：支持多用户使用
-- 答题记录：自动记录每次答题的正确与错误
-- 统计分析：查看个人答题统计和正确率
-- Web界面：美观的响应式设计，支持手机和平板
+### 1. 数学 / 小二下 / 一位数和两位数加减法
 
-## 文件说明
+- 题库总数：`14751`
+- 题型：
+  - 加法
+  - 减法
+- 答题方式：单一数值答案
 
-- `app.py` - Flask Web应用主程序
-- `database_v3.py` - 数据库管理模块（支持标签筛选和错题本）
-- `generate_tagged_problems.py` - 带标签的题库生成器
-- `practice.py` - 命令行练习程序
-- `test_tags.py` - 标签功能测试工具
-- `test_wrong_book.py` - 错题本功能测试工具
-- `requirements.txt` - Python依赖列表
-- `TAGS_GUIDE.md` - 题目分类详细说明
-- `templates/` - HTML模板文件
-  - `index.html` - 首页
-  - `practice.html` - 练习页面（含checkbox筛选）
-  - `statistics.html` - 统计页面
-  - `wrong_book.html` - 错题本页面
-- `static/` - 静态资源文件
-  - `css/style.css` - 样式文件
-  - `js/practice.js` - 练习页面JavaScript
-  - `js/wrong_book.js` - 错题本JavaScript
-- `math_problems.db` - SQLite数据库文件
-- `math_problems_tagged.json` - 带标签的完整题库JSON文件
+### 2. 数学 / 小二下 / 带余数的除法
 
-## 数据库结构
+- 题库总数：`324`
+- 题目范围：
+  - 被除数小于 `100`
+  - 除数是 `1` 位数
+  - 商是 `1` 位数
+  - 余数不能为 `0`
+- 题型：
+  - 除法
+- 答题方式：输入 `商` 和 `余数`
 
-### problems 表（题目表）
-- `id` - 题目ID
-- `question` - 题目内容
-- `num1` - 第一个数字
-- `num2` - 第二个数字
-- `answer` - 正确答案
-- `type` - 题目类型（加法/减法）
-- `tags` - 题目标签（逗号分隔）
-- `created_at` - 创建时间
+## 主要功能
 
-### users 表（用户表）
-- `id` - 用户ID
-- `username` - 用户名
-- `created_at` - 创建时间
+- 用户登录
+- 登录后按 `科目 / 年级 / 项目` 选择学习路径
+- 按题型和标签筛选题目
+- 在线作答与即时反馈
+- 错题本
+- 相似题练习
+- 答题统计
+- PDF 导出
 
-### user_answers 表（答题记录表）
-- `id` - 记录ID
-- `user_id` - 用户ID
-- `problem_id` - 题目ID
-- `user_answer` - 用户答案
-- `is_correct` - 是否正确
-- `answered_at` - 答题时间
+## 技术架构
 
-### wrong_problems 表（错题本表）
-- `id` - 记录ID
-- `user_id` - 用户ID
-- `problem_id` - 题目ID
-- `tags` - 题目标签
-- `wrong_count` - 错误次数
-- `correct_streak` - 连续正确次数
-- `created_at` - 创建时间
-- `updated_at` - 更新时间
+- 后端：`Python + Flask`
+- 数据库：`Supabase`
+- 前端：`HTML + CSS + JavaScript`
+- 题库组织方式：
+  - 每道题都写入 `problems` 表
+  - 题目的 `tags` 中包含范围标签
+  - 例如：`科目:数学`、`年级:小二下`、`项目:带余数的除法`
 
-## 使用方法
+## 启动逻辑
+
+应用启动时会执行以下流程：
+
+1. 读取 `config.py` 中的 Supabase 配置
+2. 检查 Supabase 表结构是否存在
+3. 遍历项目注册表
+4. 如果某个项目在 Supabase 中没有题库，就自动生成并写入
+5. 启动 Flask Web 服务
+
+这意味着：
+
+- 不再以本地 SQLite 题库作为主流程
+- 新增项目时，只需要注册新项目和生成器
+- 后续启动时会自动补题
+
+## 安装与启动
 
 ### 1. 安装依赖
 
@@ -82,110 +70,231 @@
 pip install -r requirements.txt
 ```
 
-### 2. 生成带标签的题库（首次使用）
+### 2. 配置 Supabase
 
-```bash
-python generate_tagged_problems.py
+复制并编辑 `config.py`：
+
+```python
+SUPABASE_URL = "https://your-project.supabase.co"
+SUPABASE_KEY = "your-anon-key"
 ```
 
-### 3. 初始化数据库
+### 3. 初始化 Supabase 表结构
 
-```bash
-python database_v3.py
-```
+在 Supabase SQL Editor 中执行：
 
-这将创建数据库并导入所有题目及其标签。
+- [supabase_schema.sql](C:/walt/git/hub/python_elements_schools/supabase_schema.sql)
 
-### 3. 启动Web应用（推荐）
+注意：
+
+- 应用会自动生成题库数据
+- 但不会自动创建 Supabase 的表和 RPC 函数
+- 所以 `supabase_schema.sql` 仍然需要先执行一次
+
+### 4. 启动应用
 
 ```bash
 python app.py
 ```
 
-然后在浏览器中访问: http://localhost:5000
-
-Web应用功能：
-- 用户登录
-- 在线答题练习
-- 灵活的题目筛选（通过checkbox选择）
-  - 加法：选择是否包含一位数/两位数、是否进位、结果范围等
-  - 减法：选择是否包含一位数/两位数、是否退位、结果范围等
-- 实时反馈正确/错误
-- 错题本功能
-  - 自动收集答错的题目
-  - 练习相似题目
-  - 智能消除机制（连续做对3次同类型题目后自动移除）
-- 查看答题统计
-
-详细的分类说明请查看 [TAGS_GUIDE.md](TAGS_GUIDE.md)
-
-### 4. 命令行练习（可选）
+或：
 
 ```bash
-python practice.py
+bash start.sh
 ```
 
-按照提示选择功能：
-- 选择 1：开始练习
-- 选择 2：查看统计
-- 选择 3：退出
+启动后访问：
 
-### 3. 使用数据库API
-
-```python
-from database_v3 import MathDatabase
-
-# 创建数据库实例
-db = MathDatabase()
-db.connect()
-
-# 添加用户
-user_id = db.add_user('张三')
-
-# 获取随机题目
-problems = db.get_problems_by_filters(10)
-
-# 记录答题
-is_correct = db.record_answer(user_id, problem_id, user_answer)
-
-# 获取用户统计
-stats = db.get_user_statistics(user_id)
-
-# 获取错题本
-wrong_problems = db.get_wrong_problems(user_id)
-
-# 获取相似题目
-similar = db.get_similar_problems(tags, count=10)
-
-db.close()
+```text
+http://localhost:5000
 ```
 
-## 题库统计
+## 部署到 Vercel
 
-- 加法题：9,801 道
-- 减法题：4,950 道
-- 总计：14,751 道
+仓库已包含 `vercel.json` 和 `api/index.py`，可以直接按 Flask Serverless 应用部署到 Vercel。
 
-数字范围：1-9（一位数）和 10-99（两位数）
+### 1. 配置环境变量
 
-## 系统要求
+在 Vercel 项目设置中添加：
 
-- Python 3.6+
-- Flask 3.0+
-- SQLite3（Python内置）
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+- `FLASK_SECRET_KEY`
 
-## Web应用截图说明
+说明：
 
-1. **首页** - 用户登录界面
-2. **练习页面** - 显示题目，输入答案，实时反馈
-3. **统计页面** - 显示答题统计和正确率
+- `SUPABASE_URL`、`SUPABASE_KEY` 用于连接 Supabase
+- `FLASK_SECRET_KEY` 需要固定，否则 Vercel 冷启动后 session 可能失效
 
-## 后续开发建议
+### 2. 初始化 Supabase
 
-1. 添加学习进度跟踪
-2. 添加成就系统
-3. 导出学习报告
-4. 添加计时功能
-5. 添加排行榜功能
-6. 支持打印练习题
-7. 添加家长监控功能
+先在 Supabase SQL Editor 中执行：
+
+- [supabase_schema.sql](C:/walt/git/hub/python_elements_schools/supabase_schema.sql)
+
+### 3. 预先写入题库
+
+Vercel 默认不自动补题库，因为首次批量生成题目可能超过 serverless 的冷启动时间。
+
+推荐流程：
+
+1. 在本地配置好 `SUPABASE_URL` 和 `SUPABASE_KEY`
+2. 本地运行一次 `python app.py`
+3. 等待题库自动写入 Supabase
+4. 再部署到 Vercel
+
+如果你确认当前题库规模可以接受，也可以额外设置：
+
+- `AUTO_SEED_PROBLEM_BANKS=true`
+
+但更推荐只在本地或一次性初始化时补题。
+
+### 4. 部署命令
+
+```bash
+vercel
+```
+
+生产部署：
+
+```bash
+vercel --prod
+```
+
+## 使用流程
+
+1. 输入用户名登录
+2. 选择 `科目 / 年级 / 项目`
+3. 进入练习页
+4. 选择题目数量、题型和标签
+5. 提交答案
+6. 查看统计和错题本
+
+## 题库生成入口
+
+项目题库统一在：
+
+- [problem_catalog.py](C:/walt/git/hub/python_elements_schools/problem_catalog.py)
+
+这里定义了：
+
+- 项目注册表 `PROJECT_CATALOG`
+- 每个项目的题库生成函数
+- 每个项目的答题模式
+- 每个项目的练习页筛选配置
+
+如果要新增项目，通常需要：
+
+1. 新增一个生成函数
+2. 把项目注册到 `PROJECT_CATALOG`
+3. 提供该项目的 `answer_mode`
+4. 提供该项目的 `practice_config`
+
+然后重启应用，系统会自动检查并补题。
+
+## 关键文件
+
+- [app.py](C:/walt/git/hub/python_elements_schools/app.py)
+  - Flask 入口
+  - 启动时自动补题
+  - 登录、练习、统计、错题本 API
+
+- [database_v3.py](C:/walt/git/hub/python_elements_schools/database_v3.py)
+  - Supabase 数据访问层
+
+- [problem_catalog.py](C:/walt/git/hub/python_elements_schools/problem_catalog.py)
+  - 项目注册与题库生成逻辑
+
+- [generate_tagged_problems.py](C:/walt/git/hub/python_elements_schools/generate_tagged_problems.py)
+  - 将某个项目的题库导出为 JSON
+
+- [templates/index.html](C:/walt/git/hub/python_elements_schools/templates/index.html)
+  - 登录与学习路径选择页
+
+- [templates/practice.html](C:/walt/git/hub/python_elements_schools/templates/practice.html)
+  - 练习页面
+
+- [templates/wrong_book.html](C:/walt/git/hub/python_elements_schools/templates/wrong_book.html)
+  - 错题本页面
+
+- [templates/statistics.html](C:/walt/git/hub/python_elements_schools/templates/statistics.html)
+  - 统计页面
+
+- [static/js/practice.js](C:/walt/git/hub/python_elements_schools/static/js/practice.js)
+  - 练习页逻辑
+  - 支持整数答案和“商 + 余数”双输入
+
+- [static/js/wrong_book.js](C:/walt/git/hub/python_elements_schools/static/js/wrong_book.js)
+  - 错题本和相似题练习逻辑
+
+## 数据表说明
+
+### `problems`
+
+- `id`
+- `question`
+- `num1`
+- `num2`
+- `answer`
+- `type`
+- `tags`
+- `created_at`
+
+说明：
+
+- `answer` 是统一存储字段
+- 普通整数题直接存整数
+- “带余数的除法”会把 `商` 和 `余数` 编码后存进 `answer`
+- 前端展示时会再转换回 `商 余 余数`
+
+### `users`
+
+- `id`
+- `username`
+- `created_at`
+
+### `user_answers`
+
+- `id`
+- `user_id`
+- `problem_id`
+- `user_answer`
+- `is_correct`
+- `answered_at`
+
+### `wrong_problems`
+
+- `id`
+- `user_id`
+- `problem_id`
+- `tags`
+- `wrong_count`
+- `correct_streak`
+- `created_at`
+- `updated_at`
+
+## 相似题规则
+
+- 相似题只在当前项目内查找
+- 相似度只根据题目的内容标签判断
+- 不会把 `科目 / 年级 / 项目` 这些范围标签当作“相似”的依据
+
+## 常见问题
+
+### 启动时报“缺少必须的表或函数”
+
+先在 Supabase SQL Editor 中执行：
+
+- [supabase_schema.sql](C:/walt/git/hub/python_elements_schools/supabase_schema.sql)
+
+### 为什么启动时会比较慢
+
+如果某个项目还没有题库，应用启动时会自动生成并写入 Supabase。首次启动会比平时慢。
+
+### 如何新增项目
+
+在 [problem_catalog.py](C:/walt/git/hub/python_elements_schools/problem_catalog.py) 中注册新项目和生成器，然后重启应用。
+
+### 旧的 SQLite 文件还需要吗
+
+当前主流程不依赖本地 SQLite。仓库里保留的一些旧脚本和旧文件主要用于历史兼容或参考，不再是推荐路径。

@@ -1,68 +1,92 @@
-# 快速开始指南
+# 快速开始
 
-## 第一次使用
+## 首次使用
 
-1. 安装依赖:
+1. 安装依赖
+
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 启动应用:
+2. 配置 Supabase
+
+- 复制并编辑 `config.py`
+- 填入真实的 `SUPABASE_URL` 和 `SUPABASE_KEY`
+
+3. 初始化 Supabase 表结构
+
+- 打开 Supabase SQL Editor
+- 执行 `supabase_schema.sql`
+
+4. 启动应用
+
 ```bash
 bash start.sh
 ```
-或者:
+
+或
+
 ```bash
 python app.py
 ```
 
-3. 打开浏览器访问: http://localhost:5000
+5. 打开浏览器访问
+
+```text
+http://localhost:5000
+```
+
+## 部署到 Vercel
+
+1. 在 Vercel 中导入本仓库
+2. 配置环境变量：
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+- `FLASK_SECRET_KEY`
+3. 在 Supabase 中执行 `supabase_schema.sql`
+4. 建议先本地运行一次 `python app.py`，让题库预先写入 Supabase
+5. 执行部署
+
+说明：
+
+- 仓库已包含 `vercel.json`
+- 在 Vercel 上默认不自动补题库
+- 如需强制自动补题，可设置 `AUTO_SEED_PROBLEM_BANKS=true`
+
+## 当前题库逻辑
+
+- 题库数据以 Supabase 为准
+- 应用启动时会自动检查已注册项目是否有题库
+- 如果某个项目没有题目，程序会自动生成并写入 Supabase
+- 当前已注册项目只有：`数学 / 小二下 / 一位数和两位数加减法`
 
 ## 使用流程
 
-### 1. 登录
-- 在首页输入用户名
-- 点击"开始练习"按钮
+1. 登录
+- 输入用户名
 
-### 2. 开始练习
-- 选择题目数量（1-50题）
-- 选择题目类型（全部/加法/减法）
-- 点击"开始练习"
-- 在输入框中输入答案
-- 按回车或点击"提交"按钮
-- 系统会立即显示对错，并自动进入下一题
+2. 选择学习路径
+- 科目
+- 年级
+- 项目
 
-### 3. 查看统计
-- 练习完成后可以查看本次成绩
-- 点击"查看统计"查看总体答题情况
-- 包括总答题数、正确数、错误数和正确率
+3. 开始练习
+- 选择题目数量
+- 选择题目类型
+- 按标签筛选
+- 提交答案
 
-## 功能特点
-
-- 实时反馈：每题提交后立即显示对错
-- 进度显示：实时显示答题进度
-- 统计分析：记录所有答题历史
-- 多用户支持：不同用户独立统计
-- 题型选择：可以只练习加法或减法
-- 响应式设计：支持手机和平板访问
-
-## 技术栈
-
-- 后端：Python + Flask
-- 前端：HTML + CSS + JavaScript
-- 数据库：SQLite
-- 题库：14,751道题（9,801道加法 + 4,950道减法）
+4. 查看统计和错题本
+- 统计页会显示当前选择的学习路径
+- 错题本和相似题练习会限制在当前项目范围内
 
 ## 常见问题
 
-Q: 如何重置数据库？
-A: 删除 math_problems.db 文件，然后运行 `python database.py`
+Q: 启动时报 `缺少必须的表或函数`
+A: 先去 Supabase 执行 `supabase_schema.sql`
 
-Q: 如何修改端口？
-A: 编辑 app.py 文件，修改最后一行的 port 参数
+Q: 如何新增一个项目题库
+A: 在 `problem_catalog.py` 里注册新项目和生成器。应用启动时会自动检查并补题
 
-Q: 如何添加更多题目？
-A: 修改 generate_math_problems.py 中的数字范围，重新生成题库
-
-Q: 数据存储在哪里？
-A: 所有数据存储在 math_problems.db SQLite数据库文件中
+Q: 题库数据存在哪里
+A: 存在 Supabase 的 `problems` 表中
