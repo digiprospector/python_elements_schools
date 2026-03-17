@@ -113,43 +113,118 @@ http://localhost:5000
 
 仓库已包含 `vercel.json` 和 `api/index.py`，可以直接按 Flask Serverless 应用部署到 Vercel。
 
-### 1. 配置环境变量
+### 部署前准备
 
-在 Vercel 项目设置中添加：
+你需要先准备好：
+
+- 一个可用的 Vercel 账号
+- 一个可用的 Supabase 项目
+- 已推送到 GitHub 的本仓库代码
+
+### 1. 先初始化 Supabase
+
+在 Supabase 后台的 SQL Editor 中执行：
+
+- [supabase_schema.sql](C:/walt/git/hub/python_elements_schools/supabase_schema.sql)
+
+这一步必须先做，因为应用依赖 Supabase 中的表和 RPC 函数。
+
+### 2. 建议先本地预热题库
+
+Vercel 是 serverless 环境。首次批量生成题库时，如果直接在 Vercel 上触发，可能因为冷启动时间限制而失败或很慢。
+
+推荐做法：
+
+1. 在本地配置 `config.py`，或设置环境变量 `SUPABASE_URL`、`SUPABASE_KEY`
+2. 本地运行 `python app.py`
+3. 等应用自动把题库写入 Supabase
+4. 在浏览器里简单访问一次首页，确认服务能正常启动
+5. 再部署到 Vercel
+
+说明：
+
+- 当前代码在 Vercel 上默认不会自动补题库
+- 如果你明确希望在 Vercel 上启动时自动补题，可以额外配置 `AUTO_SEED_PROBLEM_BANKS=true`
+- 但更推荐只在本地或一次性初始化时补题
+
+### 3. 在 Vercel 后台创建项目
+
+如果你使用 Vercel 网页后台：
+
+1. 登录 Vercel
+2. 点击 `Add New` -> `Project`
+3. 导入这个 GitHub 仓库
+4. 保持默认的 Root Directory 为仓库根目录
+5. Framework Preset 可保持自动识别，或选择 `Other`
+6. Build and Output Settings 保持默认即可
+7. 进入环境变量配置页面
+
+### 4. 配置环境变量
+
+在 Vercel 项目设置中至少添加这些变量：
 
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
 - `FLASK_SECRET_KEY`
 
-说明：
+建议说明：
 
-- `SUPABASE_URL`、`SUPABASE_KEY` 用于连接 Supabase
-- `FLASK_SECRET_KEY` 需要固定，否则 Vercel 冷启动后 session 可能失效
+- `SUPABASE_URL`：你的 Supabase 项目地址
+- `SUPABASE_KEY`：供服务端访问的 Key
+- `FLASK_SECRET_KEY`：必须是固定值，用于 Flask session 签名；如果每次部署都变化，登录状态会失效
 
-### 2. 初始化 Supabase
+`FLASK_SECRET_KEY` 可以自行生成，例如：
 
-先在 Supabase SQL Editor 中执行：
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
 
-- [supabase_schema.sql](C:/walt/git/hub/python_elements_schools/supabase_schema.sql)
-
-### 3. 预先写入题库
-
-Vercel 默认不自动补题库，因为首次批量生成题目可能超过 serverless 的冷启动时间。
-
-推荐流程：
-
-1. 在本地配置好 `SUPABASE_URL` 和 `SUPABASE_KEY`
-2. 本地运行一次 `python app.py`
-3. 等待题库自动写入 Supabase
-4. 再部署到 Vercel
-
-如果你确认当前题库规模可以接受，也可以额外设置：
+可选变量：
 
 - `AUTO_SEED_PROBLEM_BANKS=true`
 
-但更推荐只在本地或一次性初始化时补题。
+只有在你确认要让 Vercel 自动补题时才设置这个变量。
 
-### 4. 部署命令
+### 5. 开始部署
+
+在 Vercel 后台点 `Deploy` 即可。
+
+首次部署完成后，Vercel 会给你一个形如下面的域名：
+
+```text
+https://your-project-name.vercel.app
+```
+
+### 6. 部署后验证
+
+部署完成后，建议按下面顺序检查：
+
+1. 打开首页，确认静态资源和页面模板都能正常加载
+2. 输入用户名，确认可以登录
+3. 进入练习页，确认 `/api/get_problems` 可以正常返回数据
+4. 提交一道题，确认 Supabase 中能写入答题记录
+5. 打开统计页和错题本，确认相关接口可用
+
+如果登录后状态立即丢失，优先检查：
+
+- `FLASK_SECRET_KEY` 是否已设置且保持固定
+- 是否通过 Vercel 分配的正式域名访问，而不是本地预览方式
+
+### 7. 使用 Vercel CLI 部署
+
+如果你不想走网页后台，也可以使用 CLI：
+
+```bash
+npm i -g vercel
+```
+
+首次登录：
+
+```bash
+vercel login
+```
+
+在仓库根目录执行：
 
 ```bash
 vercel
@@ -160,6 +235,26 @@ vercel
 ```bash
 vercel --prod
 ```
+
+如果使用 CLI，环境变量也可以在 Vercel 后台补，或者通过 CLI 单独添加。
+
+### 8. 常见部署问题
+
+`1. 页面能打开，但登录或取题失败`
+
+通常是 `SUPABASE_URL`、`SUPABASE_KEY` 没配对，或者 Supabase 里还没执行 [supabase_schema.sql](C:/walt/git/hub/python_elements_schools/supabase_schema.sql)。
+
+`2. 首页正常，但没有题目`
+
+通常是题库还没有提前写入 Supabase。先本地运行一次 `python app.py` 完成补题，再重新访问线上环境。
+
+`3. 登录后刷新就掉线`
+
+通常是 `FLASK_SECRET_KEY` 未设置，或每次部署都换了值。
+
+`4. 首次请求特别慢`
+
+如果你设置了 `AUTO_SEED_PROBLEM_BANKS=true`，Vercel 可能在请求时补题。对于这个项目，不建议长期依赖这种模式。
 
 ## 使用流程
 
