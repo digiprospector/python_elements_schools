@@ -2,30 +2,51 @@ let modalProblems = [];
 let modalCurrentIndex = 0;
 let modalCorrectCount = 0;
 let modalWrongCount = 0;
-let currentWrongProblem = null;
 
-// 加载错题本
-function loadWrongProblems() {
-    fetch('/api/get_wrong_problems')
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            displayWrongProblems(data.wrong_problems);
-        } else {
-            alert(data.message || '加载失败');
-            if (data.message === '请先登录') {
-                location.href = '/';
+function loadSessionBanner() {
+    fetch('/api/session_state')
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.success || !data.logged_in) {
+                return;
             }
-        }
-    });
+
+            const selection = data.selection || {};
+            document.getElementById('banner-subject').textContent = selection.subject || '未选择';
+            document.getElementById('banner-grade').textContent = selection.grade || '未选择';
+            document.getElementById('banner-project').textContent = selection.project || '未选择';
+        });
 }
 
-// 显示错题列表
+function loadWrongProblems() {
+    fetch('/api/get_wrong_problems')
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.success) {
+                alert(data.message || '加载失败');
+                if (data.message === '请先登录') {
+                    location.href = '/';
+                }
+                return;
+            }
+
+            displayWrongProblems(data.wrong_problems);
+        });
+}
+
+function formatTags(tags) {
+    return tags
+        .split(',')
+        .filter((tag) => !tag.startsWith('科目:') && !tag.startsWith('年级:') && !tag.startsWith('项目:'))
+        .map((tag) => `<span class="tag">${tag}</span>`)
+        .join('');
+}
+
 function displayWrongProblems(problems) {
     const container = document.getElementById('wrong-problems-list');
     const emptyMessage = document.getElementById('empty-message');
 
-    if (problems.length === 0) {
+    if (!problems.length) {
         container.innerHTML = '';
         emptyMessage.classList.remove('hidden');
         return;
@@ -34,13 +55,9 @@ function displayWrongProblems(problems) {
     emptyMessage.classList.add('hidden');
     container.innerHTML = '';
 
-    problems.forEach(problem => {
+    problems.forEach((problem) => {
         const card = document.createElement('div');
         card.className = 'wrong-problem-card';
-
-        const tags = problem.tags.split(',');
-        const tagsHtml = tags.map(tag => `<span class="tag">${tag}</span>`).join('');
-
         card.innerHTML = `
             <div class="wrong-problem-header">
                 <div class="wrong-problem-question">${problem.question}</div>
@@ -50,42 +67,108 @@ function displayWrongProblems(problems) {
                 </div>
             </div>
             <div class="wrong-problem-info">
-                <p><strong>答案:</strong> ${problem.answer}</p>
+                <p><strong>答案：</strong>${problem.answer_display}</p>
                 <div class="wrong-problem-tags">
-                    ${tagsHtml}
+                    ${formatTags(problem.tags)}
                 </div>
             </div>
             <div class="wrong-problem-actions">
-                <button onclick="practiceSimilar('${problem.tags}', ${problem.id})" class="btn">
+                <button onclick="practiceSimilar(${problem.id}, '${problem.tags.replace(/'/g, "\\'")}')" class="btn">
                     练习相似题目
                 </button>
             </div>
         `;
-
         container.appendChild(card);
     });
 }
 
-// 练习相似题目
-function practiceSimilar(tags, problemId) {
-    currentWrongProblem = { tags, problemId };
+function renderModalAnswerInputs(answerMode) {
+    const container = document.querySelector('#modal-practice-section .answer-input');
+    if (answerMode === 'quotient_remainder') {
+        container.innerHTML = `
+            <input type="number" id="modal-answer-quotient" placeholder="请输入商">
+            <input type="number" id="modal-answer-remainder" placeholder="请输入余数">
+            <button onclick="submitModalAnswer()" class="btn">提交</button>
+        `;
+    } else {
+        container.innerHTML = `
+            <input type="number" id="modal-answer" placeholder="请输入答案">
+            <button onclick="submitModalAnswer()" class="btn">提交</button>
+        `;
+    }
+}
 
+function attachModalInputHandlers(answerMode) {
+    if (answerMode === 'quotient_remainder') {
+        const quotientInput = document.getElementById('modal-answer-quotient');
+        const remainderInput = document.getElementById('modal-answer-remainder');
+
+        quotientInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                remainderInput.focus();
+            }
+        });
+
+        remainderInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                submitModalAnswer();
+            }
+        });
+
+        quotientInput.focus();
+        return;
+    }
+
+    const singleInput = document.getElementById('modal-answer');
+    singleInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            submitModalAnswer();
+        }
+    });
+    singleInput.focus();
+}
+
+function collectModalAnswer(answerMode) {
+    if (answerMode === 'quotient_remainder') {
+        const quotient = document.getElementById('modal-answer-quotient').value;
+        const remainder = document.getElementById('modal-answer-remainder').value;
+        if (quotient === '' || remainder === '') {
+            alert('请输入商和余数');
+            return null;
+        }
+        return parseInt(quotient, 10) * 100 + parseInt(remainder, 10);
+    }
+
+    const answer = document.getElementById('modal-answer').value;
+    if (answer === '') {
+        alert('请输入答案');
+        return null;
+    }
+    return parseInt(answer, 10);
+}
+
+function practiceSimilar(problemId, tags) {
     fetch('/api/get_similar_problems', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            tags: tags,
+            tags,
             count: 5,
             exclude_id: problemId
         })
     })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            if (data.problems.length === 0) {
-                alert('没有找到相似的题目');
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.success) {
+                alert(data.message || '获取相似题失败');
                 return;
             }
+
+            if (!data.problems.length) {
+                alert('当前项目下没有找到足够相似的题目。');
+                return;
+            }
+
             modalProblems = data.problems;
             modalCurrentIndex = 0;
             modalCorrectCount = 0;
@@ -97,11 +180,9 @@ function practiceSimilar(tags, problemId) {
             document.getElementById('modal-total-count').textContent = modalProblems.length;
 
             showModalProblem();
-        }
-    });
+        });
 }
 
-// 显示弹窗中的题目
 function showModalProblem() {
     if (modalCurrentIndex >= modalProblems.length) {
         showModalResults();
@@ -110,8 +191,8 @@ function showModalProblem() {
 
     const problem = modalProblems[modalCurrentIndex];
     document.getElementById('modal-question').textContent = problem.question;
-    document.getElementById('modal-answer').value = '';
-    document.getElementById('modal-answer').focus();
+    renderModalAnswerInputs(problem.answer_mode);
+    attachModalInputHandlers(problem.answer_mode);
     document.getElementById('modal-feedback').classList.add('hidden');
 
     document.getElementById('modal-current-index').textContent = modalCurrentIndex + 1;
@@ -121,36 +202,37 @@ function showModalProblem() {
     updateModalProgress();
 }
 
-// 提交弹窗中的答案
 function submitModalAnswer() {
-    const answer = document.getElementById('modal-answer').value;
-    if (answer === '') {
-        alert('请输入答案');
+    const problem = modalProblems[modalCurrentIndex];
+    const userAnswer = collectModalAnswer(problem.answer_mode);
+    if (userAnswer === null) {
         return;
     }
-
-    const problem = modalProblems[modalCurrentIndex];
 
     fetch('/api/submit_answer', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             problem_id: problem.id,
-            user_answer: parseInt(answer)
+            user_answer: userAnswer
         })
     })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.success) {
+                alert(data.message || '提交答案失败');
+                return;
+            }
+
             const feedback = document.getElementById('modal-feedback');
             feedback.classList.remove('hidden');
 
             if (data.is_correct) {
-                feedback.textContent = '✓ 正确！';
+                feedback.textContent = '回答正确';
                 feedback.className = 'feedback correct';
                 modalCorrectCount++;
             } else {
-                feedback.textContent = `✗ 错误！正确答案是: ${data.correct_answer}`;
+                feedback.textContent = `回答错误，正确答案是：${data.correct_answer_display}`;
                 feedback.className = 'feedback wrong';
                 modalWrongCount++;
             }
@@ -159,17 +241,14 @@ function submitModalAnswer() {
                 modalCurrentIndex++;
                 showModalProblem();
             }, 1500);
-        }
-    });
+        });
 }
 
-// 更新弹窗进度条
 function updateModalProgress() {
     const progress = (modalCurrentIndex / modalProblems.length) * 100;
-    document.getElementById('modal-progress-fill').style.width = progress + '%';
+    document.getElementById('modal-progress-fill').style.width = `${progress}%`;
 }
 
-// 显示弹窗结果
 function showModalResults() {
     document.getElementById('modal-practice-section').classList.add('hidden');
     document.getElementById('modal-result-section').classList.remove('hidden');
@@ -177,27 +256,16 @@ function showModalResults() {
     document.getElementById('modal-result-correct').textContent = modalCorrectCount;
     document.getElementById('modal-result-wrong').textContent = modalWrongCount;
 
-    // 重新加载错题本（可能有题目被移除了）
     setTimeout(() => {
         loadWrongProblems();
     }, 500);
 }
 
-// 关闭弹窗
 function closeModal() {
     document.getElementById('practice-modal').classList.add('hidden');
 }
 
-// 回车提交答案
 document.addEventListener('DOMContentLoaded', function() {
+    loadSessionBanner();
     loadWrongProblems();
-
-    const modalAnswer = document.getElementById('modal-answer');
-    if (modalAnswer) {
-        modalAnswer.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                submitModalAnswer();
-            }
-        });
-    }
 });

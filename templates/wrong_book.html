@@ -17,23 +17,30 @@
             </div>
         </div>
 
+        <div id="learning-path-banner" class="section" style="padding: 18px 24px;">
+            <div class="selection-summary" style="margin-bottom: 0;">
+                <div class="selection-pill">科目：<strong id="banner-subject">未选择</strong></div>
+                <div class="selection-pill">年级：<strong id="banner-grade">未选择</strong></div>
+                <div class="selection-pill">项目：<strong id="banner-project">未选择</strong></div>
+            </div>
+        </div>
+
         <div class="section">
             <div id="wrong-book-container">
                 <div class="wrong-book-header">
-                    <h2>我的错题</h2>
-                    <p class="hint">提示: 连续做对同类型题目3次后，错题将自动从错题本移除</p>
+                    <h2>当前项目错题</h2>
+                    <p class="hint">连续做对 3 次同类题后，对应错题会自动移出错题本。</p>
                 </div>
 
                 <div id="wrong-problems-list"></div>
 
                 <div id="empty-message" class="empty-message hidden">
-                    <p>🎉 太棒了！错题本是空的</p>
-                    <p>继续保持，加油！</p>
+                    <p>当前项目没有错题</p>
+                    <p>继续保持。</p>
                 </div>
             </div>
         </div>
 
-        <!-- 练习相似题目的弹窗 -->
         <div id="practice-modal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
@@ -44,9 +51,9 @@
                 <div id="modal-practice-section">
                     <div class="progress-bar">
                         <div class="progress-info">
-                            <span>进度: <span id="modal-current-index">0</span> / <span id="modal-total-count">0</span></span>
-                            <span>正确: <span id="modal-correct-count">0</span></span>
-                            <span>错误: <span id="modal-wrong-count">0</span></span>
+                            <span>进度：<span id="modal-current-index">0</span> / <span id="modal-total-count">0</span></span>
+                            <span>正确：<span id="modal-correct-count">0</span></span>
+                            <span>错误：<span id="modal-wrong-count">0</span></span>
                         </div>
                         <div class="progress">
                             <div id="modal-progress-fill" class="progress-fill"></div>
@@ -56,7 +63,7 @@
                     <div class="problem-container">
                         <h2 id="modal-question" class="question"></h2>
                         <div class="answer-input">
-                            <input type="number" id="modal-answer" placeholder="请输入答案" />
+                            <input type="number" id="modal-answer" placeholder="请输入答案">
                             <button onclick="submitModalAnswer()" class="btn">提交</button>
                         </div>
                         <div id="modal-feedback" class="feedback hidden"></div>
@@ -64,14 +71,14 @@
                 </div>
 
                 <div id="modal-result-section" class="hidden">
-                    <h3>练习完成！</h3>
+                    <h3>练习完成</h3>
                     <div class="result-summary">
                         <div class="result-item">
-                            <span class="result-label">正确:</span>
+                            <span class="result-label">正确</span>
                             <span class="result-value correct" id="modal-result-correct">0</span>
                         </div>
                         <div class="result-item">
-                            <span class="result-label">错误:</span>
+                            <span class="result-label">错误</span>
                             <span class="result-value wrong" id="modal-result-wrong">0</span>
                         </div>
                     </div>

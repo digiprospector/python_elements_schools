@@ -21,7 +21,10 @@
             <div id="stats-container">
                 <div class="stats-card">
                     <h3>用户信息</h3>
-                    <p>用户名: <strong id="username"></strong></p>
+                    <p>用户名：<strong id="username"></strong></p>
+                    <p>科目：<strong id="subject"></strong></p>
+                    <p>年级：<strong id="grade"></strong></p>
+                    <p>项目：<strong id="project"></strong></p>
                 </div>
 
                 <div class="stats-grid">
@@ -47,22 +50,26 @@
     </div>
 
     <script>
-        // 加载统计数据
         fetch('/api/get_statistics')
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message || '请先登录');
+                    location.href = '/';
+                    return;
+                }
+
                 const stats = data.statistics;
-                document.getElementById('username').textContent = stats.username;
+                const selection = stats.selection || {};
+                document.getElementById('username').textContent = stats.username || '';
+                document.getElementById('subject').textContent = selection.subject || '';
+                document.getElementById('grade').textContent = selection.grade || '';
+                document.getElementById('project').textContent = selection.project || '';
                 document.getElementById('total-answers').textContent = stats.total_answers;
                 document.getElementById('correct-answers').textContent = stats.correct_count;
                 document.getElementById('wrong-answers').textContent = stats.wrong_count;
-                document.getElementById('accuracy').textContent = stats.accuracy + '%';
-            } else {
-                alert('请先登录');
-                location.href = '/';
-            }
-        });
+                document.getElementById('accuracy').textContent = `${stats.accuracy}%`;
+            });
     </script>
 </body>
 </html>

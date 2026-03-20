@@ -11,17 +11,53 @@
         <h1>数学题库练习系统</h1>
 
         <div id="login-section" class="section">
-            <h2>欢迎</h2>
+            <h2>欢迎登录</h2>
             <div class="form-group">
-                <input type="text" id="username" placeholder="请输入用户名" />
-                <button onclick="login()">开始练习</button>
+                <label for="username">用户名</label>
+                <input type="text" id="username" placeholder="请输入用户名">
+            </div>
+            <button onclick="login()" class="btn">开始练习</button>
+        </div>
+
+        <div id="selection-section" class="section hidden">
+            <div class="user-info">
+                <span>用户：<strong id="current-user"></strong></span>
+                <button onclick="logout()" class="btn-secondary">退出</button>
+            </div>
+
+            <h2>选择学习内容</h2>
+            <p class="hint" style="margin-bottom: 20px;">登录后先选择科目、年级和项目。</p>
+
+            <div class="selection-grid">
+                <div class="form-group">
+                    <label for="subject-select">第一层：科目</label>
+                    <select id="subject-select" onchange="handleSubjectChange()"></select>
+                </div>
+                <div class="form-group">
+                    <label for="grade-select">第二层：年级</label>
+                    <select id="grade-select" onchange="handleGradeChange()"></select>
+                </div>
+                <div class="form-group">
+                    <label for="project-select">第三层：项目</label>
+                    <select id="project-select"></select>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="saveLearningPath()" class="btn">确认选择</button>
             </div>
         </div>
 
         <div id="main-section" class="section hidden">
             <div class="user-info">
-                <span>用户: <strong id="current-user"></strong></span>
-                <button onclick="logout()" class="btn-secondary">退出</button>
+                <span>用户：<strong id="menu-user"></strong></span>
+                <button onclick="resetSelection()" class="btn-secondary">重新选择</button>
+            </div>
+
+            <div class="selection-summary">
+                <div class="selection-pill">科目：<strong id="summary-subject"></strong></div>
+                <div class="selection-pill">年级：<strong id="summary-grade"></strong></div>
+                <div class="selection-pill">项目：<strong id="summary-project"></strong></div>
             </div>
 
             <div class="menu">
@@ -33,6 +69,119 @@
     </div>
 
     <script>
+        let projectCatalog = [];
+
+        function uniqueValues(items, key) {
+            return [...new Set(items.map(item => item[key]))];
+        }
+
+        function fillSelect(selectId, options, selectedValue) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '';
+
+            options.forEach(optionValue => {
+                const option = document.createElement('option');
+                option.value = optionValue;
+                option.textContent = optionValue;
+                option.selected = optionValue === selectedValue;
+                select.appendChild(option);
+            });
+        }
+
+        function filterCatalog({subject = '', grade = ''} = {}) {
+            return projectCatalog.filter(item => {
+                if (subject && item.subject !== subject) {
+                    return false;
+                }
+                if (grade && item.grade !== grade) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        function renderSelection(catalog, selection = {}) {
+            projectCatalog = catalog || [];
+
+            const subjectOptions = uniqueValues(projectCatalog, 'subject');
+            const selectedSubject = selection.subject || subjectOptions[0] || '';
+            fillSelect('subject-select', subjectOptions, selectedSubject);
+
+            const gradeCatalog = filterCatalog({subject: selectedSubject});
+            const gradeOptions = uniqueValues(gradeCatalog, 'grade');
+            const selectedGrade = selection.grade || gradeOptions[0] || '';
+            fillSelect('grade-select', gradeOptions, selectedGrade);
+
+            const projectOptions = uniqueValues(filterCatalog({
+                subject: selectedSubject,
+                grade: selectedGrade
+            }), 'project');
+            const selectedProject = selection.project || projectOptions[0] || '';
+            fillSelect('project-select', projectOptions, selectedProject);
+        }
+
+        function handleSubjectChange() {
+            const selectedSubject = document.getElementById('subject-select').value;
+            const gradeOptions = uniqueValues(filterCatalog({subject: selectedSubject}), 'grade');
+            const selectedGrade = gradeOptions[0] || '';
+            fillSelect('grade-select', gradeOptions, selectedGrade);
+            handleGradeChange();
+        }
+
+        function handleGradeChange() {
+            const selectedSubject = document.getElementById('subject-select').value;
+            const selectedGrade = document.getElementById('grade-select').value;
+            const projectOptions = uniqueValues(filterCatalog({
+                subject: selectedSubject,
+                grade: selectedGrade
+            }), 'project');
+            fillSelect('project-select', projectOptions, projectOptions[0] || '');
+        }
+
+        function showLogin() {
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('selection-section').classList.add('hidden');
+            document.getElementById('main-section').classList.add('hidden');
+        }
+
+        function showSelection(username, catalog, selection = {}) {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('selection-section').classList.remove('hidden');
+            document.getElementById('main-section').classList.add('hidden');
+            document.getElementById('current-user').textContent = username;
+            renderSelection(catalog, selection);
+        }
+
+        function showMenu(username, selection) {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('selection-section').classList.add('hidden');
+            document.getElementById('main-section').classList.remove('hidden');
+            document.getElementById('menu-user').textContent = username;
+            document.getElementById('summary-subject').textContent = selection.subject;
+            document.getElementById('summary-grade').textContent = selection.grade;
+            document.getElementById('summary-project').textContent = selection.project;
+        }
+
+        function loadSessionState() {
+            fetch('/api/session_state')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success || !data.logged_in) {
+                        showLogin();
+                        return;
+                    }
+
+                    const selection = data.selection || {};
+                    const hasSelection = selection.subject && selection.grade && selection.project;
+
+                    if (hasSelection) {
+                        showMenu(data.username, selection);
+                    } else {
+                        showSelection(data.username, data.catalog || [], selection);
+                    }
+                });
+        }
+
         function login() {
             const username = document.getElementById('username').value.trim();
             if (!username) {
@@ -43,34 +192,63 @@
             fetch('/api/login', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: username})
+                body: JSON.stringify({username})
             })
             .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    document.getElementById('login-section').classList.add('hidden');
-                    document.getElementById('main-section').classList.remove('hidden');
-                    document.getElementById('current-user').textContent = data.username;
-                } else {
+                if (!data.success) {
                     alert(data.message);
+                    return;
                 }
+                loadSessionState();
             });
+        }
+
+        function saveLearningPath() {
+            const subject = document.getElementById('subject-select').value;
+            const grade = document.getElementById('grade-select').value;
+            const project = document.getElementById('project-select').value;
+
+            fetch('/api/set_learning_path', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({subject, grade, project})
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (!data.success) {
+                    alert(data.message);
+                    return;
+                }
+                showMenu(document.getElementById('current-user').textContent, data.selection);
+            });
+        }
+
+        function resetSelection() {
+            fetch('/api/session_state')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success || !data.logged_in) {
+                        showLogin();
+                        return;
+                    }
+                    showSelection(data.username, data.catalog || [], data.selection || {});
+                });
         }
 
         function logout() {
-            fetch('/api/logout', {method: 'POST'})
-            .then(() => {
-                location.reload();
-            });
+            fetch('/api/logout', {method: 'POST'}).then(() => location.reload());
         }
 
-        // 回车登录
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('username').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
+            const usernameInput = document.getElementById('username');
+            usernameInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
                     login();
                 }
             });
+
+            loadSessionState();
         });
     </script>
 </body>

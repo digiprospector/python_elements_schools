@@ -136,6 +136,33 @@ h2 {
     justify-content: center;
 }
 
+.selection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.selection-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.selection-pill {
+    background: #f3f5ff;
+    color: #334;
+    border: 1px solid #d8defc;
+    border-radius: 999px;
+    padding: 10px 16px;
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}
+
 .progress-bar {
     margin-bottom: 30px;
 }
@@ -485,6 +512,10 @@ h2 {
     }
 
     .result-actions {
+        flex-direction: column;
+    }
+
+    .menu {
         flex-direction: column;
     }
 

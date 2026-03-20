@@ -17,61 +17,65 @@
             </div>
         </div>
 
+        <div id="learning-path-banner" class="section" style="padding: 18px 24px;">
+            <div class="selection-summary" style="margin-bottom: 0;">
+                <div class="selection-pill">科目：<strong id="banner-subject">未选择</strong></div>
+                <div class="selection-pill">年级：<strong id="banner-grade">未选择</strong></div>
+                <div class="selection-pill">项目：<strong id="banner-project">未选择</strong></div>
+            </div>
+        </div>
+
         <div id="setup-section" class="section">
             <h2>练习设置</h2>
             <div class="form-group">
-                <label>题目数量:</label>
-                <input type="number" id="problem-count" value="10" min="1" max="50" />
+                <label for="problem-count">题目数量</label>
+                <input type="number" id="problem-count" value="10" min="1" max="50">
             </div>
             <div class="form-group">
-                <label>题目类型:</label>
-                <select id="problem-type" onchange="updateTagOptions()">
-                    <option value="">全部</option>
-                    <option value="加法">加法</option>
-                    <option value="减法">减法</option>
-                </select>
+                <label for="problem-type">题目类型</label>
+                <select id="problem-type" onchange="updateTagOptions()"></select>
             </div>
 
-            <div id="addition-tags" class="tag-group">
-                <h3>加法选项</h3>
-                <div class="checkbox-grid">
-                    <label><input type="checkbox" value="加数1是一位数"> 包含一位数（第一个数）</label>
-                    <label><input type="checkbox" value="加数1是两位数"> 包含两位数（第一个数）</label>
-                    <label><input type="checkbox" value="加数2是一位数"> 包含一位数（第二个数）</label>
-                    <label><input type="checkbox" value="加数2是两位数"> 包含两位数（第二个数）</label>
-                    <label><input type="checkbox" value="需要进位"> 需要进位</label>
-                    <label><input type="checkbox" value="不进位"> 不进位</label>
-                    <label><input type="checkbox" value="结果大于99"> 结果大于99</label>
-                    <label><input type="checkbox" value="结果大于50"> 结果大于50</label>
-                    <label><input type="checkbox" value="结果小于等于20"> 结果小于等于20</label>
+            <div id="tag-groups-container"></div>
+
+            <div class="button-group">
+                <button onclick="startPractice()" class="btn">开始练习</button>
+                <button onclick="exportPdf()" class="btn btn-secondary" style="margin-left: 10px;">导出 PDF</button>
+                <button onclick="debugQuery()" class="btn btn-secondary" style="margin-left: 10px;">Debug</button>
+            </div>
+
+            <div id="debug-section" class="section hidden" style="margin-top: 20px;">
+                <h3>Debug 信息</h3>
+                <div style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 13px; margin-bottom: 10px; overflow-x: auto;">
+                    <div style="color: #9cdcfe;">SQL:</div>
+                    <pre id="debug-sql" style="margin: 4px 0 0 0; white-space: pre-wrap; word-break: break-all;"></pre>
+                </div>
+                <div style="margin-bottom: 8px; font-weight: bold;">
+                    符合条件的题目：<span id="debug-total">0</span> 道
+                </div>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <thead>
+                            <tr style="background: #f5f5f5; position: sticky; top: 0;">
+                                <th style="padding: 8px; border-bottom: 2px solid #ddd; text-align: left;">ID</th>
+                                <th style="padding: 8px; border-bottom: 2px solid #ddd; text-align: left;">题目</th>
+                                <th style="padding: 8px; border-bottom: 2px solid #ddd; text-align: left;">答案</th>
+                                <th style="padding: 8px; border-bottom: 2px solid #ddd; text-align: left;">类型</th>
+                                <th style="padding: 8px; border-bottom: 2px solid #ddd; text-align: left;">标签</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debug-table-body"></tbody>
+                    </table>
                 </div>
             </div>
-
-            <div id="subtraction-tags" class="tag-group">
-                <h3>减法选项</h3>
-                <div class="checkbox-grid">
-                    <label><input type="checkbox" value="被减数是一位数"> 被减数是一位数</label>
-                    <label><input type="checkbox" value="被减数是两位数"> 被减数是两位数</label>
-                    <label><input type="checkbox" value="减数是一位数"> 减数是一位数</label>
-                    <label><input type="checkbox" value="减数是两位数"> 减数是两位数</label>
-                    <label><input type="checkbox" value="需要退位"> 需要退位</label>
-                    <label><input type="checkbox" value="不退位"> 不退位</label>
-                    <label><input type="checkbox" value="被减数大于50"> 被减数大于50</label>
-                    <label><input type="checkbox" value="结果为0"> 结果为0</label>
-                    <label><input type="checkbox" value="结果小于10"> 结果小于10</label>
-                    <label><input type="checkbox" value="结果大于等于50"> 结果大于等于50</label>
-                </div>
-            </div>
-
-            <button onclick="startPractice()" class="btn">开始练习</button>
         </div>
 
         <div id="practice-section" class="section hidden">
             <div class="progress-bar">
                 <div class="progress-info">
-                    <span>进度: <span id="current-index">0</span> / <span id="total-count">0</span></span>
-                    <span>正确: <span id="correct-count">0</span></span>
-                    <span>错误: <span id="wrong-count">0</span></span>
+                    <span>进度：<span id="current-index">0</span> / <span id="total-count">0</span></span>
+                    <span>正确：<span id="correct-count">0</span></span>
+                    <span>错误：<span id="wrong-count">0</span></span>
                 </div>
                 <div class="progress">
                     <div id="progress-fill" class="progress-fill"></div>
@@ -80,31 +84,28 @@
 
             <div id="problem-container" class="problem-container">
                 <h2 id="question" class="question"></h2>
-                <div class="answer-input">
-                    <input type="number" id="answer" placeholder="请输入答案" />
-                    <button onclick="submitAnswer()" class="btn">提交</button>
-                </div>
+                <div id="answer-input-container" class="answer-input"></div>
                 <div id="feedback" class="feedback hidden"></div>
             </div>
         </div>
 
         <div id="result-section" class="section hidden">
-            <h2>练习完成！</h2>
+            <h2>练习完成</h2>
             <div class="result-summary">
                 <div class="result-item">
-                    <span class="result-label">总题数:</span>
+                    <span class="result-label">总题数</span>
                     <span class="result-value" id="result-total">0</span>
                 </div>
                 <div class="result-item">
-                    <span class="result-label">正确:</span>
+                    <span class="result-label">正确</span>
                     <span class="result-value correct" id="result-correct">0</span>
                 </div>
                 <div class="result-item">
-                    <span class="result-label">错误:</span>
+                    <span class="result-label">错误</span>
                     <span class="result-value wrong" id="result-wrong">0</span>
                 </div>
                 <div class="result-item">
-                    <span class="result-label">正确率:</span>
+                    <span class="result-label">正确率</span>
                     <span class="result-value" id="result-accuracy">0%</span>
                 </div>
             </div>
