@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Math practice system Flask app.
@@ -47,15 +47,15 @@ def ensure_problem_banks_seeded(db):
         existing_count = db.get_problem_count(required_tags=scope_tags)
         if existing_count > 0:
             print(
-                f"题库已存在: {entry['subject']} / {entry['grade']} / {entry['project']} "
-                f"({existing_count} 题)"
+                f"棰樺簱宸插瓨鍦? {entry['subject']} / {entry['grade']} / {entry['project']} "
+                f"({existing_count} 棰?"
             )
             continue
 
-        print(f"正在初始化题库: {entry['subject']} / {entry['grade']} / {entry['project']}")
+        print(f"姝ｅ湪鍒濆鍖栭搴? {entry['subject']} / {entry['grade']} / {entry['project']}")
         problems = build_project_problems(entry)
         inserted = db.insert_problems(problems)
-        print(f"题库初始化完成: {entry['project']} ({inserted} 题)")
+        print(f"棰樺簱鍒濆鍖栧畬鎴? {entry['project']} ({inserted} 棰?")
 
 
 def get_current_selection():
@@ -73,12 +73,66 @@ def get_scope_tags_from_selection(selection):
     return build_scope_tags(selection["subject"], selection["grade"], selection["project"])
 
 
+def build_practice_settings_scope_key(selection):
+    return "::".join([selection["subject"], selection["grade"], selection["project"]])
+
+
+def get_allowed_practice_tags(catalog_entry):
+    allowed_tags = set()
+    practice_config = catalog_entry.get("practice_config") or {}
+    for group in practice_config.get("tag_groups", []):
+        allowed_tags.update(group.get("options", []))
+    return allowed_tags
+
+
+def normalize_practice_settings(selection, settings):
+    catalog_entry = find_catalog_entry(selection["subject"], selection["grade"], selection["project"])
+    if not catalog_entry:
+        raise ValueError("当前学习路径无效")
+
+    practice_config = catalog_entry.get("practice_config") or {}
+
+    try:
+        count = int(settings.get("count", 10))
+    except (TypeError, ValueError):
+        raise ValueError("题目数量无效") from None
+
+    if count < 1 or count > 50:
+        raise ValueError("题目数量超出允许范围")
+
+    type_value = str(settings.get("type", "")).strip()
+    allowed_types = {option.get("value", "") for option in practice_config.get("type_options", [])}
+    if type_value not in allowed_types:
+        raise ValueError("题目类型无效")
+
+    tags = settings.get("tags", [])
+    if not isinstance(tags, list):
+        raise ValueError("标签格式无效")
+
+    allowed_tags = get_allowed_practice_tags(catalog_entry)
+    normalized_tags = []
+    for tag in tags:
+        tag_value = str(tag).strip()
+        if not tag_value:
+            continue
+        if tag_value not in allowed_tags:
+            raise ValueError("包含未支持的标签")
+        if tag_value not in normalized_tags:
+            normalized_tags.append(tag_value)
+
+    return {
+        "count": count,
+        "type": type_value,
+        "tags": normalized_tags,
+    }
+
+
 def strip_scope_tags(tags):
     if isinstance(tags, str):
         tag_list = [tag for tag in tags.split(",") if tag]
     else:
         tag_list = list(tags)
-    return [tag for tag in tag_list if not (tag.startswith("科目:") or tag.startswith("年级:") or tag.startswith("项目:"))]
+    return [tag for tag in tag_list if not (tag.startswith("绉戠洰:") or tag.startswith("骞寸骇:") or tag.startswith("椤圭洰:"))]
 
 
 def serialize_problem(problem):
@@ -128,7 +182,7 @@ def load_supabase_config():
             return SUPABASE_URL, SUPABASE_KEY
 
     raise AppConfigError(
-        "缺少 Supabase 配置。请设置环境变量 SUPABASE_URL、SUPABASE_KEY，"
+        "缺少 Supabase 配置。请设置环境变量 SUPABASE_URL 和 SUPABASE_KEY，"
         "或在本地 config.py 中填入真实配置。"
     )
 
@@ -183,7 +237,7 @@ def login():
     except DatabaseSchemaError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
     except DatabaseWriteError as exc:
-        return jsonify({"success": False, "message": f"Supabase 写入失败: {exc}"}), 500
+        return jsonify({"success": False, "message": f"Supabase 鍐欏叆澶辫触: {exc}"}), 500
 
     session["user_id"] = user_id
     session["username"] = username
@@ -193,6 +247,20 @@ def login():
 
 @app.route("/api/session_state", methods=["GET"])
 def session_state():
+    practice_settings = None
+
+    if "user_id" in session:
+        selection = get_current_selection()
+        if selection:
+            try:
+                database = get_db()
+                settings_map = database.get_user_practice_settings(session["user_id"])
+                practice_settings = settings_map.get(build_practice_settings_scope_key(selection))
+            except AppConfigError as exc:
+                return jsonify({"success": False, "message": str(exc)}), 500
+            except (DatabaseSchemaError, DatabaseWriteError) as exc:
+                return jsonify({"success": False, "message": str(exc)}), 500
+
     return jsonify(
         {
             "success": True,
@@ -204,6 +272,7 @@ def session_state():
                 "project": session.get("project", ""),
             },
             "catalog": get_catalog_for_ui(),
+            "practice_settings": practice_settings,
         }
     )
 
@@ -211,7 +280,7 @@ def session_state():
 @app.route("/api/set_learning_path", methods=["POST"])
 def set_learning_path():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "请先登录"})
+        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
 
     data = request.get_json() or {}
     subject = data.get("subject", "").strip()
@@ -219,7 +288,7 @@ def set_learning_path():
     project = data.get("project", "").strip()
 
     if not find_catalog_entry(subject, grade, project):
-        return jsonify({"success": False, "message": "学习路径选择无效"})
+        return jsonify({"success": False, "message": "瀛︿範璺緞閫夋嫨鏃犳晥"})
 
     session["subject"] = subject
     session["grade"] = grade
@@ -237,14 +306,43 @@ def set_learning_path():
     )
 
 
-@app.route("/api/get_problems", methods=["GET"])
-def get_problems():
+@app.route("/api/save_practice_settings", methods=["POST"])
+def save_practice_settings():
     if "user_id" not in session:
         return jsonify({"success": False, "message": "请先登录"}), 401
 
     selection = get_current_selection()
     if not selection:
-        return jsonify({"success": False, "message": "请先选择科目、年级和项目。"}), 400
+        return jsonify({"success": False, "message": "请先选择科目、年级和项目"}), 400
+
+    data = request.get_json() or {}
+
+    try:
+        normalized_settings = normalize_practice_settings(selection, data)
+        database = get_db()
+        database.save_user_practice_settings(
+            session["user_id"],
+            build_practice_settings_scope_key(selection),
+            normalized_settings,
+        )
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+    except AppConfigError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 500
+    except (DatabaseSchemaError, DatabaseWriteError) as exc:
+        return jsonify({"success": False, "message": str(exc)}), 500
+
+    return jsonify({"success": True, "practice_settings": normalized_settings})
+
+
+@app.route("/api/get_problems", methods=["GET"])
+def get_problems():
+    if "user_id" not in session:
+        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"}), 401
+
+    selection = get_current_selection()
+    if not selection:
+        return jsonify({"success": False, "message": "请先选择科目、年级和项目"}), 400
 
     count = request.args.get("count", 10, type=int)
     problem_type = request.args.get("type", None)
@@ -275,7 +373,7 @@ def get_problems():
 def debug_problems():
     selection = get_current_selection()
     if not selection:
-        return jsonify({"success": False, "message": "请先选择科目、年级和项目。"}), 400
+        return jsonify({"success": False, "message": "请先选择科目、年级和项目"}), 400
 
     problem_type = request.args.get("type", None)
     tags = request.args.getlist("tags[]")
@@ -290,7 +388,7 @@ def debug_problems():
         return jsonify({"success": False, "message": str(exc)}), 500
 
     print(f"\n[DEBUG] Query: {desc}")
-    print(f"[DEBUG] 匹配题目数量: {len(problems)}")
+    print(f"[DEBUG] 鍖归厤棰樼洰鏁伴噺: {len(problems)}")
 
     return jsonify(
         {
@@ -305,14 +403,14 @@ def debug_problems():
 @app.route("/api/submit_answer", methods=["POST"])
 def submit_answer():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "请先登录"})
+        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
 
     data = request.get_json() or {}
     problem_id = data.get("problem_id")
     user_answer = data.get("user_answer")
 
     if problem_id is None or user_answer is None:
-        return jsonify({"success": False, "message": "参数错误"})
+        return jsonify({"success": False, "message": "鍙傛暟閿欒"})
 
     try:
         user_answer = int(user_answer)
@@ -349,7 +447,7 @@ def submit_answer():
 @app.route("/api/get_statistics", methods=["GET"])
 def get_statistics():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "请先登录"})
+        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
 
     try:
         database = get_db()
@@ -383,7 +481,7 @@ def logout():
 @app.route("/api/get_wrong_problems", methods=["GET"])
 def get_wrong_problems():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "请先登录"})
+        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
 
     try:
         database = get_db()
@@ -408,11 +506,11 @@ def get_wrong_problems():
 @app.route("/api/get_similar_problems", methods=["POST"])
 def get_similar_problems():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "请先登录"})
+        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
 
     selection = get_current_selection()
     if not selection:
-        return jsonify({"success": False, "message": "请先选择科目、年级和项目。"}), 400
+        return jsonify({"success": False, "message": "请先选择科目、年级和项目"}), 400
 
     data = request.get_json() or {}
     tags = data.get("tags")
@@ -420,7 +518,7 @@ def get_similar_problems():
     exclude_id = data.get("exclude_id")
 
     if not tags:
-        return jsonify({"success": False, "message": "参数错误"})
+        return jsonify({"success": False, "message": "鍙傛暟閿欒"})
 
     try:
         candidate_count = max(int(count) * 20, 100)

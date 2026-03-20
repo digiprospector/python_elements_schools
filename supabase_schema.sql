@@ -1,7 +1,9 @@
--- Supabase Schema for 数学题库练习系统
--- 在 Supabase SQL Editor 中运行
+-- Supabase schema for the math practice system.
+-- Run this file in the Supabase SQL Editor.
 
--- 题目表
+-- problems table
+-- The subject/grade/project scope is stored inside the tags column
+-- using tags such as "科目:数学", "年级:小二下", "项目:一位数和两位数加减法".
 CREATE TABLE IF NOT EXISTS problems (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     question TEXT NOT NULL,
@@ -13,14 +15,18 @@ CREATE TABLE IF NOT EXISTS problems (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 用户表
+-- users table
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
+    practice_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 答题记录表
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS practice_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- user_answers table
 CREATE TABLE IF NOT EXISTS user_answers (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
@@ -30,7 +36,7 @@ CREATE TABLE IF NOT EXISTS user_answers (
     answered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 错题本表
+-- wrong_problems table
 CREATE TABLE IF NOT EXISTS wrong_problems (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
@@ -43,14 +49,18 @@ CREATE TABLE IF NOT EXISTS wrong_problems (
     UNIQUE(user_id, problem_id)
 );
 
--- 索引
+-- indexes
 CREATE INDEX IF NOT EXISTS idx_user_answers_user_id ON user_answers(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_answers_problem_id ON user_answers(problem_id);
 CREATE INDEX IF NOT EXISTS idx_problems_type ON problems(type);
 CREATE INDEX IF NOT EXISTS idx_wrong_problems_user_id ON wrong_problems(user_id);
 
--- RPC 函数：随机取题
-CREATE OR REPLACE FUNCTION get_random_problems(p_type TEXT DEFAULT NULL, p_tags TEXT[] DEFAULT NULL, p_count INTEGER DEFAULT 10)
+-- RPC: get random problems
+CREATE OR REPLACE FUNCTION get_random_problems(
+    p_type TEXT DEFAULT NULL,
+    p_tags TEXT[] DEFAULT NULL,
+    p_count INTEGER DEFAULT 10
+)
 RETURNS SETOF problems
 LANGUAGE plpgsql
 AS $$
@@ -59,19 +69,19 @@ BEGIN
     SELECT *
     FROM problems p
     WHERE (p_type IS NULL OR p.type = p_type)
-      AND (p_tags IS NULL OR (
-          -- 所有指定标签都必须匹配
-          NOT EXISTS (
-              SELECT 1 FROM unnest(p_tags) AS t(tag)
+      AND (
+          p_tags IS NULL OR NOT EXISTS (
+              SELECT 1
+              FROM unnest(p_tags) AS t(tag)
               WHERE p.tags NOT LIKE '%' || t.tag || '%'
           )
-      ))
+      )
     ORDER BY RANDOM()
     LIMIT p_count;
 END;
 $$;
 
--- RPC 函数：用户答题统计
+-- RPC: get user statistics
 CREATE OR REPLACE FUNCTION get_user_statistics(p_user_id BIGINT)
 RETURNS JSON
 LANGUAGE plpgsql
@@ -81,8 +91,8 @@ DECLARE
 BEGIN
     SELECT json_build_object(
         'total_answers', COUNT(*),
-        'correct_count', SUM(CASE WHEN is_correct THEN 1 ELSE 0 END),
-        'wrong_count', SUM(CASE WHEN NOT is_correct THEN 1 ELSE 0 END)
+        'correct_count', COALESCE(SUM(CASE WHEN is_correct THEN 1 ELSE 0 END), 0),
+        'wrong_count', COALESCE(SUM(CASE WHEN NOT is_correct THEN 1 ELSE 0 END), 0)
     ) INTO result
     FROM user_answers
     WHERE user_id = p_user_id;
@@ -91,8 +101,12 @@ BEGIN
 END;
 $$;
 
--- RPC 函数：获取相似题目（至少匹配2个标签）
-CREATE OR REPLACE FUNCTION get_similar_problems(p_tags TEXT, p_count INTEGER DEFAULT 10, p_exclude_id BIGINT DEFAULT NULL)
+-- RPC: get similar problems that match at least two tags
+CREATE OR REPLACE FUNCTION get_similar_problems(
+    p_tags TEXT,
+    p_count INTEGER DEFAULT 10,
+    p_exclude_id BIGINT DEFAULT NULL
+)
 RETURNS SETOF problems
 LANGUAGE plpgsql
 AS $$
@@ -104,12 +118,16 @@ DECLARE
 BEGIN
     tags_arr := string_to_array(p_tags, ',');
 
-    -- 构建至少匹配2个标签的条件
     FOR i IN 1..array_length(tags_arr, 1) LOOP
-        FOR j IN (i+1)..array_length(tags_arr, 1) LOOP
-            conditions := array_append(conditions,
-                format('(tags LIKE ''%%%s%%'' AND tags LIKE ''%%%s%%'')',
-                    trim(tags_arr[i]), trim(tags_arr[j])));
+        FOR j IN (i + 1)..array_length(tags_arr, 1) LOOP
+            conditions := array_append(
+                conditions,
+                format(
+                    '(tags LIKE ''%%%s%%'' AND tags LIKE ''%%%s%%'')',
+                    trim(tags_arr[i]),
+                    trim(tags_arr[j])
+                )
+            );
         END LOOP;
     END LOOP;
 
@@ -124,13 +142,13 @@ BEGIN
 END;
 $$;
 
--- 启用 Row Level Security（可选，按需配置）
+-- Optional: enable Row Level Security as needed.
 -- ALTER TABLE problems ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE user_answers ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE wrong_problems ENABLE ROW LEVEL SECURITY;
 
--- 如果使用 anon key，需要允许匿名访问
+-- If you use the anon key, add policies that allow your app to read and write.
 -- CREATE POLICY "Allow anonymous read" ON problems FOR SELECT USING (true);
 -- CREATE POLICY "Allow anonymous all" ON users FOR ALL USING (true);
 -- CREATE POLICY "Allow anonymous all" ON user_answers FOR ALL USING (true);
