@@ -215,3 +215,6 @@ config.py
 math_problems.json
 math_problems.txt
 math_problems_complete.txt
+math_problems.db
+math_problems_tagged.json
+*.swp
