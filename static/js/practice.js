@@ -6,6 +6,26 @@ let activeProjectConfig = null;
 let currentPracticeSelection = null;
 let savedPracticeSettings = null;
 let lastPersistedPracticeSettingsJson = null;
+let isSubmittingAnswer = false;
+
+function isWordProblem(problem) {
+    if (!problem) {
+        return false;
+    }
+
+    const problemType = problem.type || '';
+    const questionText = problem.question || '';
+    return problemType.includes('应用题') || questionText.length > 24;
+}
+
+function updateProblemPresentation(problem) {
+    const questionElement = document.getElementById('question');
+    const containerElement = document.getElementById('problem-container');
+    const wordProblem = isWordProblem(problem);
+
+    questionElement.classList.toggle('word-problem', wordProblem);
+    containerElement.classList.toggle('word-problem', wordProblem);
+}
 
 function setSavedPracticeSettings(settings) {
     savedPracticeSettings = settings || null;
@@ -115,6 +135,10 @@ function getSelectedTags() {
     const tags = [];
     const checkboxes = document.querySelectorAll('.tag-group input[type="checkbox"]:checked');
     checkboxes.forEach((checkbox) => {
+        const parentGroup = checkbox.closest('.tag-group');
+        if (parentGroup && parentGroup.style.display === 'none') {
+            return;
+        }
         tags.push(checkbox.value);
     });
     return tags;
@@ -145,16 +169,38 @@ function renderTagGroups(tagGroups) {
         title.textContent = group.title;
         groupElement.appendChild(title);
 
-        const grid = document.createElement('div');
-        grid.className = 'checkbox-grid';
+        const optionGroups = group.option_groups || [{
+            title: group.title,
+            match: group.match || 'all',
+            options: group.options || []
+        }];
 
-        group.options.forEach((tagValue) => {
-            const label = document.createElement('label');
-            label.innerHTML = `<input type="checkbox" value="${tagValue}"> ${tagValue}`;
-            grid.appendChild(label);
+        optionGroups.forEach((optionGroup) => {
+            if (!optionGroup.options || !optionGroup.options.length) {
+                return;
+            }
+
+            const section = document.createElement('div');
+            section.className = 'tag-option-group';
+
+            const sectionTitle = document.createElement('div');
+            sectionTitle.className = 'tag-option-group-title';
+            sectionTitle.textContent = optionGroup.title;
+            section.appendChild(sectionTitle);
+
+            const grid = document.createElement('div');
+            grid.className = 'checkbox-grid';
+
+            (optionGroup.options || []).forEach((tagValue) => {
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" value="${tagValue}"> ${tagValue}`;
+                grid.appendChild(label);
+            });
+
+            section.appendChild(grid);
+            groupElement.appendChild(section);
         });
 
-        groupElement.appendChild(grid);
         container.appendChild(groupElement);
     });
 }
@@ -217,6 +263,26 @@ function collectAnswer(answerMode) {
     return {
         user_answer: parseInt(answer, 10)
     };
+}
+
+function persistAnswerRecord(problemId, payload) {
+    fetch('/api/submit_answer', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            problem_id: problemId,
+            ...payload
+        })
+    })
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.success) {
+                throw new Error(data.message || '提交答案失败');
+            }
+        })
+        .catch((error) => {
+            console.error('Failed to persist answer record:', error);
+        });
 }
 
 function attachAnswerKeyHandlers() {
@@ -346,6 +412,9 @@ function exportPdf() {
                 return;
             }
 
+            const hasWordProblems = data.problems.some((problem) => isWordProblem(problem));
+            const layoutClass = hasWordProblems ? 'list' : 'grid';
+
             let html = `
             <!DOCTYPE html>
             <html lang="zh-CN">
@@ -383,10 +452,29 @@ function exportPdf() {
                         gap: 30px 40px;
                         width: 100%;
                     }
+                    .list {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 18px;
+                    }
                     .problem {
                         font-size: 18px;
                         padding: 10px 5px;
                         white-space: nowrap;
+                    }
+                    .problem.word-problem {
+                        white-space: normal;
+                        line-height: 1.7;
+                        padding: 14px 0;
+                        border-bottom: 1px solid #ddd;
+                    }
+                    .problem-index {
+                        font-weight: bold;
+                        margin-right: 8px;
+                    }
+                    .answer-line {
+                        margin-top: 10px;
+                        font-size: 16px;
                     }
                     @media print {
                         @page {
@@ -408,14 +496,19 @@ function exportPdf() {
                     <span>班级：________</span>
                     <span>得分：________</span>
                 </div>
-                <div class="grid">
+                <div class="${layoutClass}">
             `;
 
-            data.problems.forEach((problem) => {
-                const printableQuestion = problem.question.replace(/\?/g, '___');
+            data.problems.forEach((problem, index) => {
+                const printableQuestion = hasWordProblems
+                    ? problem.question
+                    : problem.question.replace(/[?？]/g, '___');
+                const wordProblemClass = hasWordProblems ? ' word-problem' : '';
+                const answerLine = hasWordProblems ? '<div class="answer-line">答：________________</div>' : '';
                 html += `
-                    <div class="problem">
-                        ${printableQuestion}
+                    <div class="problem${wordProblemClass}">
+                        <span class="problem-index">${index + 1}.</span>${printableQuestion}
+                        ${answerLine}
                     </div>
                 `;
             });
@@ -447,6 +540,7 @@ function showProblem() {
 
     const problem = problems[currentIndex];
     document.getElementById('question').textContent = problem.question;
+    updateProblemPresentation(problem);
     renderAnswerInputs(problem.answer_mode);
     attachAnswerKeyHandlers();
     focusAnswerInput(problem.answer_mode);
@@ -460,45 +554,38 @@ function showProblem() {
 }
 
 function submitAnswer() {
+    if (isSubmittingAnswer) {
+        return;
+    }
+
     const problem = problems[currentIndex];
     const payload = collectAnswer(problem.answer_mode);
     if (!payload) {
         return;
     }
 
-    fetch('/api/submit_answer', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            problem_id: problem.id,
-            ...payload
-        })
-    })
-        .then((res) => res.json())
-        .then((data) => {
-            if (!data.success) {
-                alert(data.message || '提交答案失败');
-                return;
-            }
+    isSubmittingAnswer = true;
+    const isCorrect = payload.user_answer === problem.answer;
+    const feedback = document.getElementById('feedback');
+    feedback.classList.remove('hidden');
 
-            const feedback = document.getElementById('feedback');
-            feedback.classList.remove('hidden');
+    if (isCorrect) {
+        feedback.textContent = '回答正确';
+        feedback.className = 'feedback correct';
+        correctCount++;
+    } else {
+        feedback.textContent = `回答错误，正确答案是：${problem.answer_display}`;
+        feedback.className = 'feedback wrong';
+        wrongCount++;
+    }
 
-            if (data.is_correct) {
-                feedback.textContent = '回答正确';
-                feedback.className = 'feedback correct';
-                correctCount++;
-            } else {
-                feedback.textContent = `回答错误，正确答案是：${data.correct_answer_display}`;
-                feedback.className = 'feedback wrong';
-                wrongCount++;
-            }
+    persistAnswerRecord(problem.id, payload);
 
-            setTimeout(() => {
-                currentIndex++;
-                showProblem();
-            }, 1500);
-        });
+    setTimeout(() => {
+        currentIndex++;
+        isSubmittingAnswer = false;
+        showProblem();
+    }, 1000);
 }
 
 function updateProgress() {

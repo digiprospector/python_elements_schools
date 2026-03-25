@@ -1,10 +1,23 @@
 -- Supabase schema for the math practice system.
 -- Run this file in the Supabase SQL Editor.
+-- WARNING: this script performs a full reset of app tables/functions in public schema.
+
+BEGIN;
+
+-- Full reset: drop RPCs and tables first, then recreate everything.
+DROP FUNCTION IF EXISTS get_random_problems(TEXT, TEXT[], INTEGER);
+DROP FUNCTION IF EXISTS get_user_statistics(BIGINT);
+DROP FUNCTION IF EXISTS get_similar_problems(TEXT, INTEGER, BIGINT);
+
+DROP TABLE IF EXISTS wrong_problems;
+DROP TABLE IF EXISTS user_answers;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS problems;
 
 -- problems table
 -- The subject/grade/project scope is stored inside the tags column
 -- using tags such as "科目:数学", "年级:小二下", "项目:一位数和两位数加减法".
-CREATE TABLE IF NOT EXISTS problems (
+CREATE TABLE problems (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     question TEXT NOT NULL,
     num1 INTEGER NOT NULL,
@@ -16,18 +29,15 @@ CREATE TABLE IF NOT EXISTS problems (
 );
 
 -- users table
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     practice_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE users
-ADD COLUMN IF NOT EXISTS practice_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
-
 -- user_answers table
-CREATE TABLE IF NOT EXISTS user_answers (
+CREATE TABLE user_answers (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
     problem_id BIGINT NOT NULL REFERENCES problems(id),
@@ -37,7 +47,7 @@ CREATE TABLE IF NOT EXISTS user_answers (
 );
 
 -- wrong_problems table
-CREATE TABLE IF NOT EXISTS wrong_problems (
+CREATE TABLE wrong_problems (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id),
     problem_id BIGINT NOT NULL REFERENCES problems(id),
@@ -50,10 +60,10 @@ CREATE TABLE IF NOT EXISTS wrong_problems (
 );
 
 -- indexes
-CREATE INDEX IF NOT EXISTS idx_user_answers_user_id ON user_answers(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_answers_problem_id ON user_answers(problem_id);
-CREATE INDEX IF NOT EXISTS idx_problems_type ON problems(type);
-CREATE INDEX IF NOT EXISTS idx_wrong_problems_user_id ON wrong_problems(user_id);
+CREATE INDEX idx_user_answers_user_id ON user_answers(user_id);
+CREATE INDEX idx_user_answers_problem_id ON user_answers(problem_id);
+CREATE INDEX idx_problems_type ON problems(type);
+CREATE INDEX idx_wrong_problems_user_id ON wrong_problems(user_id);
 
 -- RPC: get random problems
 CREATE OR REPLACE FUNCTION get_random_problems(
@@ -153,3 +163,5 @@ $$;
 -- CREATE POLICY "Allow anonymous all" ON users FOR ALL USING (true);
 -- CREATE POLICY "Allow anonymous all" ON user_answers FOR ALL USING (true);
 -- CREATE POLICY "Allow anonymous all" ON wrong_problems FOR ALL USING (true);
+
+COMMIT;

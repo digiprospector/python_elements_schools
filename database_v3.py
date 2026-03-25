@@ -33,7 +33,7 @@ class MathDatabase:
     def _wrap_practice_settings_error(self, exc):
         if "practice_settings" in str(exc):
             raise DatabaseSchemaError(
-                "Supabase 缂哄皯 users.practice_settings 瀛楁銆傝閲嶆柊鎵ц supabase_schema.sql 鏇存柊琛ㄧ粨鏋勩€?"
+                "Supabase 缺少 users.practice_settings 字段。请重新执行 supabase_schema.sql 更新表结构。"
             ) from exc
         self._wrap_api_error(exc)
 
@@ -120,6 +120,47 @@ class MathDatabase:
                 self._wrap_api_error(exc)
             inserted += len(batch)
         return inserted
+
+    def _delete_rows_by_problem_ids(self, table_name, problem_ids, batch_size=500):
+        deleted = 0
+        for start in range(0, len(problem_ids), batch_size):
+            chunk = problem_ids[start:start + batch_size]
+            if not chunk:
+                continue
+            try:
+                self.client.table(table_name).delete().in_("problem_id", chunk).execute()
+            except APIError as exc:
+                self._wrap_api_error(exc)
+            deleted += len(chunk)
+        return deleted
+
+    def purge_project_data(self, required_tags):
+        problems = self.get_all_problems_by_filters(required_tags=required_tags)
+        problem_ids = [problem["id"] for problem in problems]
+        if not problem_ids:
+            return 0
+
+        self._delete_rows_by_problem_ids("wrong_problems", problem_ids)
+        self._delete_rows_by_problem_ids("user_answers", problem_ids)
+
+        for start in range(0, len(problem_ids), 500):
+            chunk = problem_ids[start:start + 500]
+            try:
+                self.client.table("problems").delete().in_("id", chunk).execute()
+            except APIError as exc:
+                self._wrap_api_error(exc)
+
+        return len(problem_ids)
+
+    def insert_problems_and_return(self, problems):
+        if not problems:
+            return []
+
+        try:
+            result = self.client.table("problems").insert(problems).execute()
+        except APIError as exc:
+            self._wrap_api_error(exc)
+        return result.data or []
 
     def record_answer(self, user_id, problem_id, user_answer):
         problem = self.get_problem_by_id(problem_id)
@@ -255,24 +296,43 @@ class MathDatabase:
             self._wrap_api_error(exc)
         return result.data or []
 
+    def get_all_problems_by_filters(self, problem_type=None, required_tags=None, batch_size=1000):
+        all_results = []
+        start = 0
+
+        while True:
+            query = self.client.table("problems").select("*")
+            if problem_type:
+                query = query.eq("type", problem_type)
+            if required_tags:
+                for tag in required_tags:
+                    query = query.like("tags", f"%{tag}%")
+
+            try:
+                result = query.range(start, start + batch_size - 1).execute()
+            except APIError as exc:
+                self._wrap_api_error(exc)
+
+            batch = result.data or []
+            all_results.extend(batch)
+
+            if len(batch) < batch_size:
+                break
+
+            start += batch_size
+
+        return all_results
+
     def debug_problems_by_filters(self, problem_type=None, required_tags=None):
-        query = self.client.table("problems").select("*")
         desc_parts = ["SELECT * FROM problems WHERE 1=1"]
-
         if problem_type:
-            query = query.eq("type", problem_type)
             desc_parts.append(f"AND type = '{problem_type}'")
-
         if required_tags:
             for tag in required_tags:
-                query = query.like("tags", f"%{tag}%")
                 desc_parts.append(f"AND tags LIKE '%{tag}%'")
 
-        try:
-            result = query.execute()
-        except APIError as exc:
-            self._wrap_api_error(exc)
-        return " ".join(desc_parts), result.data or []
+        problems = self.get_all_problems_by_filters(problem_type, required_tags)
+        return " ".join(desc_parts), problems
 
     def get_wrong_problems(self, user_id):
         try:

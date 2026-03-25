@@ -5,6 +5,7 @@ Math practice system Flask app.
 """
 
 import os
+import random
 import secrets
 
 from flask import Flask, jsonify, render_template, request, session
@@ -13,11 +14,17 @@ from database_v3 import DatabaseSchemaError, DatabaseWriteError, MathDatabase
 from problem_catalog import (
     PROJECT_CATALOG,
     build_project_problems,
+    build_template_filter_description,
     build_scope_tags,
+    filter_problems_by_selected_groups,
     find_catalog_entry,
     format_answer,
+    generate_template_problems,
     get_scope_from_tags,
     get_catalog_for_ui,
+    normalize_tag_groups,
+    get_selected_tag_groups,
+    is_template_project,
 )
 
 
@@ -43,19 +50,33 @@ seed_checked = False
 
 def ensure_problem_banks_seeded(db):
     for entry in PROJECT_CATALOG:
+        if is_template_project(entry):
+            continue
+
         scope_tags = build_scope_tags(entry["subject"], entry["grade"], entry["project"])
         existing_count = db.get_problem_count(required_tags=scope_tags)
-        if existing_count > 0:
+        expected_count = int(entry.get("expected_count") or 0)
+
+        if existing_count > 0 and expected_count > 0 and existing_count < expected_count:
             print(
-                f"棰樺簱宸插瓨鍦? {entry['subject']} / {entry['grade']} / {entry['project']} "
-                f"({existing_count} 棰?"
+                f"检测到题库不完整: {entry['subject']} / {entry['grade']} / {entry['project']} "
+                f"(当前 {existing_count}, 期望 {expected_count})，正在重建"
+            )
+            deleted = db.purge_project_data(scope_tags)
+            print(f"已清理旧题 {deleted} 道，开始重新初始化")
+            existing_count = 0
+
+        if existing_count > 0 and (expected_count == 0 or existing_count >= expected_count):
+            print(
+                f"题库已存在: {entry['subject']} / {entry['grade']} / {entry['project']} "
+                f"({existing_count} 题)"
             )
             continue
 
-        print(f"姝ｅ湪鍒濆鍖栭搴? {entry['subject']} / {entry['grade']} / {entry['project']}")
+        print(f"正在初始化题库: {entry['subject']} / {entry['grade']} / {entry['project']}")
         problems = build_project_problems(entry)
         inserted = db.insert_problems(problems)
-        print(f"棰樺簱鍒濆鍖栧畬鎴? {entry['project']} ({inserted} 棰?")
+        print(f"题库初始化完成: {entry['project']} ({inserted} 题)")
 
 
 def get_current_selection():
@@ -80,9 +101,15 @@ def build_practice_settings_scope_key(selection):
 def get_allowed_practice_tags(catalog_entry):
     allowed_tags = set()
     practice_config = catalog_entry.get("practice_config") or {}
-    for group in practice_config.get("tag_groups", []):
+    for group in normalize_tag_groups(practice_config):
         allowed_tags.update(group.get("options", []))
     return allowed_tags
+
+
+def validate_required_tag_groups(catalog_entry, type_value, selected_tags):
+    for group in get_selected_tag_groups(catalog_entry, selected_tags, type_value):
+        if group["required"] and not group["selected_options"]:
+            raise ValueError(f"请至少选择一个“{group['title'] or '筛选条件'}”")
 
 
 def normalize_practice_settings(selection, settings):
@@ -100,7 +127,10 @@ def normalize_practice_settings(selection, settings):
     if count < 1 or count > 50:
         raise ValueError("题目数量超出允许范围")
 
-    type_value = str(settings.get("type", "")).strip()
+    raw_type_value = settings.get("type", "")
+    if raw_type_value is None:
+        raw_type_value = ""
+    type_value = str(raw_type_value).strip()
     allowed_types = {option.get("value", "") for option in practice_config.get("type_options", [])}
     if type_value not in allowed_types:
         raise ValueError("题目类型无效")
@@ -120,6 +150,8 @@ def normalize_practice_settings(selection, settings):
         if tag_value not in normalized_tags:
             normalized_tags.append(tag_value)
 
+    validate_required_tag_groups(catalog_entry, type_value, normalized_tags)
+
     return {
         "count": count,
         "type": type_value,
@@ -132,7 +164,7 @@ def strip_scope_tags(tags):
         tag_list = [tag for tag in tags.split(",") if tag]
     else:
         tag_list = list(tags)
-    return [tag for tag in tag_list if not (tag.startswith("绉戠洰:") or tag.startswith("骞寸骇:") or tag.startswith("椤圭洰:"))]
+    return [tag for tag in tag_list if not (tag.startswith("科目:") or tag.startswith("年级:") or tag.startswith("项目:"))]
 
 
 def serialize_problem(problem):
@@ -237,7 +269,7 @@ def login():
     except DatabaseSchemaError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
     except DatabaseWriteError as exc:
-        return jsonify({"success": False, "message": f"Supabase 鍐欏叆澶辫触: {exc}"}), 500
+        return jsonify({"success": False, "message": f"Supabase 写入失败: {exc}"}), 500
 
     session["user_id"] = user_id
     session["username"] = username
@@ -280,7 +312,7 @@ def session_state():
 @app.route("/api/set_learning_path", methods=["POST"])
 def set_learning_path():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
+        return jsonify({"success": False, "message": "请先登录"})
 
     data = request.get_json() or {}
     subject = data.get("subject", "").strip()
@@ -288,7 +320,7 @@ def set_learning_path():
     project = data.get("project", "").strip()
 
     if not find_catalog_entry(subject, grade, project):
-        return jsonify({"success": False, "message": "瀛︿範璺緞閫夋嫨鏃犳晥"})
+        return jsonify({"success": False, "message": "学习路径选择无效"})
 
     session["subject"] = subject
     session["grade"] = grade
@@ -338,7 +370,7 @@ def save_practice_settings():
 @app.route("/api/get_problems", methods=["GET"])
 def get_problems():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"}), 401
+        return jsonify({"success": False, "message": "请先登录"}), 401
 
     selection = get_current_selection()
     if not selection:
@@ -347,15 +379,41 @@ def get_problems():
     count = request.args.get("count", 10, type=int)
     problem_type = request.args.get("type", None)
     tags = request.args.getlist("tags[]")
-    required_tags = tags + get_scope_tags_from_selection(selection)
+
+    try:
+        normalized_request = normalize_practice_settings(
+            selection,
+            {"count": count, "type": problem_type, "tags": tags},
+        )
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+    count = normalized_request["count"]
+    problem_type = normalized_request["type"] or None
+    tags = normalized_request["tags"]
+    catalog_entry = find_catalog_entry(selection["subject"], selection["grade"], selection["project"])
 
     try:
         database = get_db()
-        problems = database.get_problems_by_filters(count, problem_type, required_tags if required_tags else None)
-        if not problems:
-            scoped_count = database.get_problem_count(required_tags=get_scope_tags_from_selection(selection))
-        else:
+        if catalog_entry and is_template_project(catalog_entry):
+            generated_problems = generate_template_problems(catalog_entry, count, tags, problem_type or "")
+            problems = database.insert_problems_and_return(generated_problems)
             scoped_count = -1
+        else:
+            scope_tags = get_scope_tags_from_selection(selection)
+            if tags:
+                candidate_problems = database.get_all_problems_by_filters(problem_type, scope_tags)
+                selected_groups = get_selected_tag_groups(catalog_entry, tags, problem_type or "")
+                filtered_problems = filter_problems_by_selected_groups(candidate_problems, selected_groups)
+                random.SystemRandom().shuffle(filtered_problems)
+                problems = filtered_problems[:count]
+                scoped_count = len(candidate_problems)
+            else:
+                problems = database.get_problems_by_filters(count, problem_type, scope_tags)
+                if not problems:
+                    scoped_count = database.get_problem_count(required_tags=scope_tags)
+                else:
+                    scoped_count = -1
     except AppConfigError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
     except (DatabaseSchemaError, DatabaseWriteError) as exc:
@@ -377,18 +435,38 @@ def debug_problems():
 
     problem_type = request.args.get("type", None)
     tags = request.args.getlist("tags[]")
-    required_tags = tags + get_scope_tags_from_selection(selection)
 
     try:
-        database = get_db()
-        desc, problems = database.debug_problems_by_filters(problem_type, required_tags if required_tags else None)
+        normalized_request = normalize_practice_settings(
+            selection,
+            {"count": 10, "type": problem_type, "tags": tags},
+        )
+    except ValueError as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
+
+    problem_type = normalized_request["type"] or None
+    tags = normalized_request["tags"]
+    catalog_entry = find_catalog_entry(selection["subject"], selection["grade"], selection["project"])
+
+    try:
+        if catalog_entry and is_template_project(catalog_entry):
+            desc = build_template_filter_description(catalog_entry, tags, problem_type or "")
+            problems = generate_template_problems(catalog_entry, 10, tags, problem_type or "")
+        else:
+            scope_tags = get_scope_tags_from_selection(selection)
+            database = get_db()
+            desc, problems = database.debug_problems_by_filters(problem_type, scope_tags)
+            if tags:
+                selected_groups = get_selected_tag_groups(catalog_entry, tags, problem_type or "")
+                desc = f"{desc} | {build_template_filter_description(catalog_entry, tags, problem_type or '')}"
+                problems = filter_problems_by_selected_groups(problems, selected_groups)
     except AppConfigError as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
     except (DatabaseSchemaError, DatabaseWriteError) as exc:
         return jsonify({"success": False, "message": str(exc)}), 500
 
     print(f"\n[DEBUG] Query: {desc}")
-    print(f"[DEBUG] 鍖归厤棰樼洰鏁伴噺: {len(problems)}")
+    print(f"[DEBUG] 匹配题目数量: {len(problems)}")
 
     return jsonify(
         {
@@ -403,14 +481,14 @@ def debug_problems():
 @app.route("/api/submit_answer", methods=["POST"])
 def submit_answer():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
+        return jsonify({"success": False, "message": "请先登录"})
 
     data = request.get_json() or {}
     problem_id = data.get("problem_id")
     user_answer = data.get("user_answer")
 
     if problem_id is None or user_answer is None:
-        return jsonify({"success": False, "message": "鍙傛暟閿欒"})
+        return jsonify({"success": False, "message": "参数错误"})
 
     try:
         user_answer = int(user_answer)
@@ -447,7 +525,7 @@ def submit_answer():
 @app.route("/api/get_statistics", methods=["GET"])
 def get_statistics():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
+        return jsonify({"success": False, "message": "请先登录"})
 
     try:
         database = get_db()
@@ -481,7 +559,7 @@ def logout():
 @app.route("/api/get_wrong_problems", methods=["GET"])
 def get_wrong_problems():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
+        return jsonify({"success": False, "message": "请先登录"})
 
     try:
         database = get_db()
@@ -506,7 +584,7 @@ def get_wrong_problems():
 @app.route("/api/get_similar_problems", methods=["POST"])
 def get_similar_problems():
     if "user_id" not in session:
-        return jsonify({"success": False, "message": "璇峰厛鐧诲綍"})
+        return jsonify({"success": False, "message": "请先登录"})
 
     selection = get_current_selection()
     if not selection:
@@ -518,7 +596,7 @@ def get_similar_problems():
     exclude_id = data.get("exclude_id")
 
     if not tags:
-        return jsonify({"success": False, "message": "鍙傛暟閿欒"})
+        return jsonify({"success": False, "message": "参数错误"})
 
     try:
         candidate_count = max(int(count) * 20, 100)

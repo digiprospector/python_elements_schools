@@ -2,6 +2,26 @@ let modalProblems = [];
 let modalCurrentIndex = 0;
 let modalCorrectCount = 0;
 let modalWrongCount = 0;
+let isSubmittingModalAnswer = false;
+
+function isWordProblem(problem) {
+    if (!problem) {
+        return false;
+    }
+
+    const problemType = problem.type || '';
+    const questionText = problem.question || '';
+    return problemType.includes('应用题') || questionText.length > 24;
+}
+
+function updateModalProblemPresentation(problem) {
+    const questionElement = document.getElementById('modal-question');
+    const containerElement = document.querySelector('#modal-practice-section .problem-container');
+    const wordProblem = isWordProblem(problem);
+
+    questionElement.classList.toggle('word-problem', wordProblem);
+    containerElement.classList.toggle('word-problem', wordProblem);
+}
 
 function loadSessionBanner() {
     fetch('/api/session_state')
@@ -58,9 +78,10 @@ function displayWrongProblems(problems) {
     problems.forEach((problem) => {
         const card = document.createElement('div');
         card.className = 'wrong-problem-card';
+        const questionClass = isWordProblem(problem) ? 'wrong-problem-question word-problem-inline' : 'wrong-problem-question';
         card.innerHTML = `
             <div class="wrong-problem-header">
-                <div class="wrong-problem-question">${problem.question}</div>
+                <div class="${questionClass}">${problem.question}</div>
                 <div class="wrong-problem-stats">
                     <span class="stat-badge wrong">错误 ${problem.wrong_count} 次</span>
                     <span class="stat-badge correct">连对 ${problem.correct_streak}/3</span>
@@ -147,6 +168,26 @@ function collectModalAnswer(answerMode) {
     return parseInt(answer, 10);
 }
 
+function persistModalAnswerRecord(problemId, userAnswer) {
+    fetch('/api/submit_answer', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            problem_id: problemId,
+            user_answer: userAnswer
+        })
+    })
+        .then((res) => res.json())
+        .then((data) => {
+            if (!data.success) {
+                throw new Error(data.message || '提交答案失败');
+            }
+        })
+        .catch((error) => {
+            console.error('Failed to persist modal answer record:', error);
+        });
+}
+
 function practiceSimilar(problemId, tags) {
     fetch('/api/get_similar_problems', {
         method: 'POST',
@@ -191,6 +232,7 @@ function showModalProblem() {
 
     const problem = modalProblems[modalCurrentIndex];
     document.getElementById('modal-question').textContent = problem.question;
+    updateModalProblemPresentation(problem);
     renderModalAnswerInputs(problem.answer_mode);
     attachModalInputHandlers(problem.answer_mode);
     document.getElementById('modal-feedback').classList.add('hidden');
@@ -203,45 +245,38 @@ function showModalProblem() {
 }
 
 function submitModalAnswer() {
+    if (isSubmittingModalAnswer) {
+        return;
+    }
+
     const problem = modalProblems[modalCurrentIndex];
     const userAnswer = collectModalAnswer(problem.answer_mode);
     if (userAnswer === null) {
         return;
     }
 
-    fetch('/api/submit_answer', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            problem_id: problem.id,
-            user_answer: userAnswer
-        })
-    })
-        .then((res) => res.json())
-        .then((data) => {
-            if (!data.success) {
-                alert(data.message || '提交答案失败');
-                return;
-            }
+    isSubmittingModalAnswer = true;
+    const isCorrect = userAnswer === problem.answer;
+    const feedback = document.getElementById('modal-feedback');
+    feedback.classList.remove('hidden');
 
-            const feedback = document.getElementById('modal-feedback');
-            feedback.classList.remove('hidden');
+    if (isCorrect) {
+        feedback.textContent = '回答正确';
+        feedback.className = 'feedback correct';
+        modalCorrectCount++;
+    } else {
+        feedback.textContent = `回答错误，正确答案是：${problem.answer_display}`;
+        feedback.className = 'feedback wrong';
+        modalWrongCount++;
+    }
 
-            if (data.is_correct) {
-                feedback.textContent = '回答正确';
-                feedback.className = 'feedback correct';
-                modalCorrectCount++;
-            } else {
-                feedback.textContent = `回答错误，正确答案是：${data.correct_answer_display}`;
-                feedback.className = 'feedback wrong';
-                modalWrongCount++;
-            }
+    persistModalAnswerRecord(problem.id, userAnswer);
 
-            setTimeout(() => {
-                modalCurrentIndex++;
-                showModalProblem();
-            }, 1500);
-        });
+    setTimeout(() => {
+        modalCurrentIndex++;
+        isSubmittingModalAnswer = false;
+        showModalProblem();
+    }, 1000);
 }
 
 function updateModalProgress() {

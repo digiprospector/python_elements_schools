@@ -192,10 +192,20 @@ h2 {
     text-align: center;
 }
 
+.problem-container.word-problem {
+    text-align: left;
+}
+
 .question {
     font-size: 3em;
     color: #333;
     margin: 40px 0;
+}
+
+.question.word-problem {
+    font-size: 2rem;
+    line-height: 1.7;
+    margin: 24px 0 30px;
 }
 
 .answer-input {
@@ -327,6 +337,17 @@ h2 {
     font-size: 1.1em;
 }
 
+.tag-option-group + .tag-option-group {
+    margin-top: 16px;
+}
+
+.tag-option-group-title {
+    margin-bottom: 10px;
+    color: #555;
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .checkbox-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -393,6 +414,12 @@ h2 {
     font-size: 1.5em;
     color: #333;
     font-weight: bold;
+    line-height: 1.5;
+}
+
+.wrong-problem-question.word-problem-inline {
+    font-size: 1.2em;
+    font-weight: 600;
 }
 
 .wrong-problem-stats {
@@ -501,6 +528,10 @@ h2 {
 @media (max-width: 600px) {
     .question {
         font-size: 2em;
+    }
+
+    .question.word-problem {
+        font-size: 1.5rem;
     }
 
     .answer-input {
